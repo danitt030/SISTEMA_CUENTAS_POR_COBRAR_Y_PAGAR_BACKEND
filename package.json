@@ -1,0 +1,54 @@
+{
+  "name": "sistema_cuentas_por_cobrar_y_pagar_backend",
+  "version": "1.0.0",
+  "description": "sistema_Cuentas_Por_Cobrar",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "seed": "node configs/data/seed.js",
+    "setup": "npm install && npm run seed",
+    "docs": "node configs/generateDocs.js"
+  },
+  "keywords": [
+    "sistema-educativo",
+    "gestion-escolar",
+    "nodejs",
+    "mongodb",
+    "express",
+    "mern-stack"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/danitt030/SISTEMA_CUENTAS_POR_COBRAR_Y_PAGAR_BACKEND.git"
+  },
+  "author": "LOS_COMPILADORES",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/danitt030/SISTEMA_CUENTAS_POR_COBRAR_Y_PAGAR_BACKEND/issues"
+  },
+  "homepage": "https://github.com/danitt030/SISTEMA_CUENTAS_POR_COBRAR_Y_PAGAR_BACKEND#readme",
+  "dependencies": {
+    "argon2": "^0.44.0",
+    "axios": "^1.13.6",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "date-fns": "^4.1.0",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.3.1",
+    "express-validator": "^7.3.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.3.0",
+    "morgan": "^1.10.1",
+    "multer": "^2.1.1",
+    "node-cron": "^4.2.1",
+    "nodemon": "^3.1.14",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
+  }
+}
