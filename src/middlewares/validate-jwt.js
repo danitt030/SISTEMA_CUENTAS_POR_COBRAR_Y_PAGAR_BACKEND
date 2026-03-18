@@ -25,10 +25,10 @@ export const validateJWT = async (req, res, next) => {
            }) 
         }
 
-        if(user.status === false){
+        if(user.estado === false){
             return res.status(400).json({
                 success: false,
-                message: " Usuario desactivado previamente"
+                message: "Usuario desactivado previamente"
             })
         }
 

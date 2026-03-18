@@ -3,11 +3,11 @@ export const hasRoles = (...roles) => {
         if(!req.usuario){
             return res.status(500).json({
                 success: false,
-                message: "Se quiere verificar un role antes de validar el token"
+                message: "Se quiere verificar un rol antes de validar el token"
             })
         }
 
-        if(!roles.includes(req.usuario.role)){
+        if(!roles.includes(req.usuario.rol)){
             return res.status(401).json({
                 success: false,
                 message:`El servicio requiere uno de estos roles ${roles}`
