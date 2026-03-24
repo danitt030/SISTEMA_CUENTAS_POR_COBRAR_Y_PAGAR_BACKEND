@@ -12,6 +12,7 @@ import { dbConnection } from "./mongo.js";
 // Importar rutas
 import authRoutes from "../src/auth/auth.routes.js";
 import usuariosRoutes from "../src/user/user.routes.js";
+import proveedoresRoutes from "../src/proveedor/proveedor.routes.js";
 import { crearAdmin } from "./admin-default.js";
 
 const middlewares = (app) => {
@@ -33,6 +34,9 @@ const routes = (app) => {
 
     // Rutas de usuarios
     app.use("/sistemasCuentasPorPagarYCobrar/v1/usuarios", usuariosRoutes);
+
+    // Rutas de proveedores
+    app.use("/sistemasCuentasPorPagarYCobrar/v1/proveedores", proveedoresRoutes);
 };
 
 const conectarDB = async () => {

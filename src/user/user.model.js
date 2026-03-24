@@ -69,8 +69,7 @@ const usuarioSchema = Schema({
             "VENDEDOR_ROLE",
             "AUXILIAR_ROLE",
             "CLIENTE_ROLE"
-        ],
-        default: "AUXILIAR_ROLE"
+        ]
     },
 
     // Ubicación (Guatemala) - Opcional para clientes
@@ -102,4 +101,4 @@ usuarioSchema.methods.toJSON = function() {
     return usuario;
 }
 
-export default model("Usuario", usuarioSchema);
+export default model("Usuario", usuarioSchema); 
