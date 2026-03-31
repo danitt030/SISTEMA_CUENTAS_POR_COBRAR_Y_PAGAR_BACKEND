@@ -18,6 +18,7 @@ import facturaPorPagarRoutes from "../src/facturaPorPagar/facturaPorPagar.routes
 import facturaPorCobrarRoutes from "../src/facturaPorCobrar/facturaPorCobrar.routes.js";
 import pagoProveedorRoutes from "../src/pagoProveedor/pagoProveedor.routes.js";
 import cobroClienteRoutes from "../src/cobroCliente/cobroCliente.routes.js";
+import reportesRoutes from "../src/reportes/reportes.routes.js";
 import { crearAdmin } from "./admin-default.js";
 
 const middlewares = (app) => {
@@ -57,6 +58,9 @@ const routes = (app) => {
 
     // Rutas de cobros de clientes
     app.use("/sistemasCuentasPorPagarYCobrar/v1/cobrosClientes", cobroClienteRoutes);
+
+    // Rutas de reportes
+    app.use("/sistemasCuentasPorPagarYCobrar/v1/reportes", reportesRoutes);
 };
 
 const conectarDB = async () => {
