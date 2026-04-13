@@ -58,7 +58,6 @@ router.get("/buscarClientesActivos", buscarClientesActivosValidator, buscarClien
 router.get(
     "/exportarClientes/excel",
     exportarClientesValidator,
-    crearAuditoriaMiddleware("EXPORTAR", "CLIENTES", (req) => "Exportación de clientes a Excel"),
     exportarClientes
 );
 

@@ -1,11 +1,7 @@
 import Auditoria from "./auditoria.model.js";
 import Usuario from "../user/user.model.js";
 import XLSX from "xlsx";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { descargarExcel } from "../helpers/excel-generator.js";
 
 // 1. REGISTRAR EVENTO DE AUDITORIA
 export const registrarEvento = async (req, res) => {
@@ -122,30 +118,57 @@ export const filtrarPorUsuario = async (req, res) => {
 export const filtrarPorFechaYAccion = async (req, res) => {
     try {
         const { fechaInicio, fechaFin, accion, limite = 50, pagina = 1 } = req.query;
-        const skip = (pagina - 1) * limite;
+        const skip = (pagina - 1) * parseInt(limite);
 
         let filtro = {};
+        
+        console.log("📋 Query params recibidos:", { fechaInicio, fechaFin, accion, limite, pagina });
 
+        // Procesar fechas con mejor validación
         if (fechaInicio && String(fechaInicio).trim() !== "") {
-            const fechaInicioParsed = new Date(String(fechaInicio).trim());
-            if (!isNaN(fechaInicioParsed.getTime())) {
-                filtro.timestamp = filtro.timestamp || {};
-                filtro.timestamp.$gte = fechaInicioParsed;
+            try {
+                const fechaInicioParsed = new Date(String(fechaInicio).trim());
+                if (!isNaN(fechaInicioParsed.getTime())) {
+                    filtro.timestamp = filtro.timestamp || {};
+                    filtro.timestamp.$gte = fechaInicioParsed;
+                    console.log(`✅ Filtro fechaInicio: ${fechaInicioParsed}`);
+                }
+            } catch (e) {
+                console.warn(`⚠️ Error parseando fechaInicio: ${fechaInicio}`);
             }
         }
 
         if (fechaFin && String(fechaFin).trim() !== "") {
-            const fechaFinParsed = new Date(String(fechaFin).trim());
-            fechaFinParsed.setHours(23, 59, 59, 999);
-            if (!isNaN(fechaFinParsed.getTime())) {
-                filtro.timestamp = filtro.timestamp || {};
-                filtro.timestamp.$lte = fechaFinParsed;
+            try {
+                const fechaFinParsed = new Date(String(fechaFin).trim());
+                if (!isNaN(fechaFinParsed.getTime())) {
+                    // Asegurar que llegue hasta el final del día
+                    fechaFinParsed.setHours(23, 59, 59, 999);
+                    filtro.timestamp = filtro.timestamp || {};
+                    filtro.timestamp.$lte = fechaFinParsed;
+                    console.log(`✅ Filtro fechaFin: ${fechaFinParsed}`);
+                }
+            } catch (e) {
+                console.warn(`⚠️ Error parseando fechaFin: ${fechaFin}`);
             }
         }
 
+        // ⭐ FILTRO DE ACCIÓN - MÁS ROBUSTO
         if (accion && String(accion).trim() !== "") {
-            filtro.accion = String(accion).trim();
+            const accionTrimmed = String(accion).trim().toUpperCase();
+            
+            // Validar que sea una acción válida
+            const accionesValidas = ["CREAR", "ACTUALIZAR", "ELIMINAR", "LEER", "EXPORTAR", "DESCARGAR", "LOGIN", "LOGOUT"];
+            
+            if (accionesValidas.includes(accionTrimmed)) {
+                filtro.accion = accionTrimmed;
+                console.log(`✅ Filtro acción (VÁLIDA): ${accionTrimmed}`);
+            } else {
+                console.warn(`⚠️ Acción NO válida: ${accionTrimmed}`);
+            }
         }
+
+        console.log(`🔍 Filtro FINAL aplicado:`, JSON.stringify(filtro, null, 2));
 
         const logs = await Auditoria.find(filtro)
             .populate("usuario", "usuario correo nombre apellido rol")
@@ -157,12 +180,14 @@ export const filtrarPorFechaYAccion = async (req, res) => {
         const total = await Auditoria.countDocuments(filtro);
         const totalPaginas = Math.ceil(total / parseInt(limite));
 
+        console.log(`📊 Resultados: ${logs.length} de ${total} registros`);
+
         return res.status(200).json({
             success: true,
             filtros: {
                 fechaInicio: (fechaInicio && String(fechaInicio).trim() !== "") ? fechaInicio : null,
                 fechaFin: (fechaFin && String(fechaFin).trim() !== "") ? fechaFin : null,
-                accion: (accion && String(accion).trim() !== "") ? accion : null
+                accion: (accion && String(accion).trim() !== "") ? accion.toUpperCase() : null
             },
             logs,
             pagina: parseInt(pagina),
@@ -171,6 +196,7 @@ export const filtrarPorFechaYAccion = async (req, res) => {
             totalPaginas
         });
     } catch (err) {
+        console.error("❌ Error en filtrarPorFechaYAccion:", err.message);
         return res.status(500).json({
             success: false,
             message: err.message
@@ -184,28 +210,54 @@ export const exportarLogs = async (req, res) => {
         let { fechaInicio, fechaFin, accion } = req.query;
 
         let filtro = {};
+        
+        console.log("📋 Exportar - Query params recibidos:", { fechaInicio, fechaFin, accion });
 
+        // Procesar fechas con mejor validación
         if (fechaInicio && fechaInicio.trim()) {
-            const fechaInicioParsed = new Date(fechaInicio);
-            if (!isNaN(fechaInicioParsed.getTime())) {
-                filtro.timestamp = filtro.timestamp || {};
-                filtro.timestamp.$gte = fechaInicioParsed;
+            try {
+                const fechaInicioParsed = new Date(fechaInicio);
+                if (!isNaN(fechaInicioParsed.getTime())) {
+                    filtro.timestamp = filtro.timestamp || {};
+                    filtro.timestamp.$gte = fechaInicioParsed;
+                    console.log(`✅ Exportar - Filtro fechaInicio: ${fechaInicioParsed}`);
+                }
+            } catch (e) {
+                console.warn(`⚠️ Error parseando fechaInicio en export: ${fechaInicio}`);
             }
         }
 
         if (fechaFin && fechaFin.trim()) {
-            const fechaFinParsed = new Date(fechaFin);
-            // Establecer a fin de día
-            fechaFinParsed.setHours(23, 59, 59, 999);
-            if (!isNaN(fechaFinParsed.getTime())) {
-                filtro.timestamp = filtro.timestamp || {};
-                filtro.timestamp.$lte = fechaFinParsed;
+            try {
+                const fechaFinParsed = new Date(fechaFin);
+                // Asegurar que llegue hasta el final del día
+                fechaFinParsed.setHours(23, 59, 59, 999);
+                if (!isNaN(fechaFinParsed.getTime())) {
+                    filtro.timestamp = filtro.timestamp || {};
+                    filtro.timestamp.$lte = fechaFinParsed;
+                    console.log(`✅ Exportar - Filtro fechaFin: ${fechaFinParsed}`);
+                }
+            } catch (e) {
+                console.warn(`⚠️ Error parseando fechaFin en export: ${fechaFin}`);
             }
         }
 
+        // ⭐ FILTRO DE ACCIÓN - MÁS ROBUSTO
         if (accion && accion.trim()) {
-            filtro.accion = accion.trim();
+            const accionTrimmed = String(accion).trim().toUpperCase();
+            
+            // Validar que sea una acción válida
+            const accionesValidas = ["CREAR", "ACTUALIZAR", "ELIMINAR", "LEER", "EXPORTAR", "DESCARGAR", "LOGIN", "LOGOUT"];
+            
+            if (accionesValidas.includes(accionTrimmed)) {
+                filtro.accion = accionTrimmed;
+                console.log(`✅ Exportar - Filtro acción (VÁLIDA): ${accionTrimmed}`);
+            } else {
+                console.warn(`⚠️ Exportar - Acción NO válida: ${accionTrimmed}`);
+            }
         }
+
+        console.log(`📥 Filtro FINAL para exportar:`, JSON.stringify(filtro, null, 2));
 
         const logs = await Auditoria.find(filtro)
             .populate("usuario", "usuario correo nombre apellido rol")
@@ -231,30 +283,10 @@ export const exportarLogs = async (req, res) => {
             "Timestamp": log.timestamp
         }));
 
-        const ws = XLSX.utils.json_to_sheet(datos);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Auditoría");
-
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const filename = `Auditoria_${timestamp}.xlsx`;
-        const excelDir = path.join(__dirname, "../../public/EXCEL");
-
-        if (!fs.existsSync(excelDir)) {
-            fs.mkdirSync(excelDir, { recursive: true });
-        }
-
-        const filepath = path.join(excelDir, filename);
-        XLSX.writeFile(wb, filepath);
-
-        return res.status(200).json({
-            success: true,
-            message: "Logs exportados exitosamente",
-            archivo: filename,
-            ruta: `public/EXCEL/${filename}`,
-            rutaCompleta: filepath,
-            totalRegistros: logs.length
-        });
+        // ✅ NUEVO: Descargar directamente sin guardar
+        descargarExcel(datos, "Auditoría", "Auditoria", res);
     } catch (err) {
+        console.error("❌ Error en exportarLogs:", err.message);
         return res.status(500).json({
             success: false,
             message: err.message

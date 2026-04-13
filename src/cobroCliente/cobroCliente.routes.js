@@ -84,7 +84,6 @@ router.get("/comisiones/totales", validarObtenerComisiones, obtenerComisionesTot
 router.get(
     "/exportar/excel",
     validarExportarCobros,
-    crearAuditoriaMiddleware("EXPORTAR", "COBROS_CLIENTES", (req) => "Exportación de cobros a Excel"),
     exportarCobrosClientes
 );
 

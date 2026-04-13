@@ -79,7 +79,6 @@ router.get("/proveedor/:id", obtenerPagosPorProveedorValidator, obtenerPagosPorP
 router.get(
     "/exportar/excel",
     exportarPagosProveedorValidator,
-    crearAuditoriaMiddleware("EXPORTAR", "PAGOS_PROVEEDORES", (req) => "Exportación de pagos a Excel"),
     exportarPagosProveedor
 );
 

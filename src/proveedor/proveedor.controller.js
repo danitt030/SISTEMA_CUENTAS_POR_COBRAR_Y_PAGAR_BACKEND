@@ -1,11 +1,6 @@
 import Proveedor from "./proveedor.model.js";
 import XLSX from "xlsx";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { descargarExcel } from "../helpers/excel-generator.js";
 
 export const crearProveedor = async (req, res) => {
     try {
@@ -307,43 +302,8 @@ export const exportarProveedores = async (req, res) => {
             "Límite Crédito": p.limiteCreditoMes
         }));
 
-        const ws = XLSX.utils.json_to_sheet(datos);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Proveedores");
-
-        ws["!cols"] = [
-            { wch: 25 },
-            { wch: 15 },
-            { wch: 18 },
-            { wch: 15 },
-            { wch: 25 },
-            { wch: 15 },
-            { wch: 15 },
-            { wch: 15 },
-            { wch: 15 },
-            { wch: 15 },
-            { wch: 15 }
-        ];
-
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const filename = `Proveedores_${timestamp}.xlsx`;
-        const excelDir = path.join(__dirname, "../../public/EXCEL");
-
-        if (!fs.existsSync(excelDir)) {
-            fs.mkdirSync(excelDir, { recursive: true });
-        }
-
-        const filepath = path.join(excelDir, filename);
-        XLSX.writeFile(wb, filepath);
-
-        return res.status(200).json({
-            success: true,
-            message: "Archivo Excel generado correctamente",
-            total: proveedores.length,
-            archivo: filename,
-            ruta: `public/EXCEL/${filename}`,
-            rutaCompleta: filepath
-        });
+        // ✅ NUEVO: Descargar directamente sin guardar
+        descargarExcel(datos, "Proveedores", "Proveedores", res);
     } catch (err) {
         return res.status(500).json({
             success: false,

@@ -1,6 +1,7 @@
 import { hash, verify } from "argon2";
 import Usuario from "../user/user.model.js";
 import { generateJWT } from "../helpers/generate-jwt.js";
+import { crearClienteAutomatico } from "../cliente/cliente.controller.js";
 
 export const registrar = async (req, res) => {
     try {
@@ -8,7 +9,48 @@ export const registrar = async (req, res) => {
         const contraseñaEncriptada = await hash(data.contraseña);
         data.contraseña = contraseñaEncriptada;
 
+        // ==================== ASIGNACIÓN INTELIGENTE DE ROL ====================
+        // Si hay JWT y es ADMINISTRADOR: puede usar el rol del body
+        // Si NO hay JWT: es registro público, SOLO CLIENTE_ROLE
+        
+        const hasJWT = req.usuario !== undefined; // Existe si pasó validación JWT
+        const isAdmin = hasJWT && req.usuario.rol === "ADMINISTRADOR_ROLE";
+
+        if (!hasJWT) {
+            // Registro público - SOLO CLIENTE_ROLE
+            data.rol = "CLIENTE_ROLE";
+        } else if (isAdmin && data.rol) {
+            // ADMINISTRADOR especificó un rol - USE el del body (ya validado en registrarValidator)
+            // data.rol ya está en el body, no cambiar
+        } else if (!isAdmin) {
+            // JWT existe pero NO es ADMINISTRADOR - error (debería haber sido bloqueado por validador)
+            return res.status(403).json({
+                success: false,
+                message: "Solo ADMINISTRADOR puede crear usuarios con roles específicos"
+            });
+        } else {
+            // JWT existe, es ADMIN, pero no especificó rol - asignar CLIENTE_ROLE por defecto
+            data.rol = "CLIENTE_ROLE";
+        }
+
         const usuario = await Usuario.create(data);
+
+        // Auto-crear Cliente si el rol es CLIENTE_ROLE
+        if (usuario.rol === "CLIENTE_ROLE") {
+            try {
+                await crearClienteAutomatico(
+                    usuario._id,
+                    usuario.nombre,
+                    usuario.correo,
+                    usuario.telefono,
+                    usuario.tipoDocumento,
+                    usuario.numeroDocumento
+                );
+            } catch (err) {
+                console.error("Error al crear Cliente automático:", err.message);
+                // No fallar el registro del usuario si falla la creación del Cliente
+            }
+        }
 
         return res.status(201).json({
             success: true,
@@ -65,7 +107,7 @@ export const iniciarSesion = async (req, res) => {
             });
         }
 
-        const token = await generateJWT(usuarioEncontrado.id);
+        const token = await generateJWT(usuarioEncontrado.id, usuarioEncontrado.rol);
         const usuarioJson = usuarioEncontrado.toJSON();
 
         return res.status(200).json({

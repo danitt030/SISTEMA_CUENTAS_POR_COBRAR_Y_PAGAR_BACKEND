@@ -42,7 +42,6 @@ router.get("/buscarProveedoresActivos", buscarProveedoresActivosValidator, busca
 router.get(
     "/exportarProveedores/excel",
     exportarProveedoresValidator,
-    crearAuditoriaMiddleware("EXPORTAR", "PROVEEDORES", (req) => "Exportación de proveedores a Excel"),
     exportarProveedores
 );
 
