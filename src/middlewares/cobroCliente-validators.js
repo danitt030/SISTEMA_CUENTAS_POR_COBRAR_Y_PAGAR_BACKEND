@@ -5,7 +5,7 @@ import { hasRoles } from "./validate-roles.js";
 
 export const validarCrearCobroCliente = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "VENDEDOR_ROLE"),
     body("numeroComprobante").notEmpty().withMessage("Número de comprobante requerido"),
     body("facturaPorCobrar").notEmpty().withMessage("Factura requerida").isMongoId().withMessage("ID factura inválido"),
     body("cliente").notEmpty().withMessage("Cliente requerido").isMongoId().withMessage("ID cliente inválido"),
@@ -22,7 +22,7 @@ export const validarCrearCobroCliente = [
 
 export const validarObtenerCobros = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     query("limite").optional().isInt({ min: 1 }).withMessage("Límite debe ser positivo"),
     query("desde").optional().isInt({ min: 0 }).withMessage("Desde debe ser no negativo"),
     validateField
@@ -30,7 +30,7 @@ export const validarObtenerCobros = [
 
 export const validarObtenerCobroPorId = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     param("id").isMongoId().withMessage("ID inválido"),
     validateField
 ];
@@ -50,7 +50,7 @@ export const validarActualizarCobro = [
 
 export const validarBuscarCobrosActivos = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     query("cliente").optional().isMongoId().withMessage("ID cliente inválido"),
     query("fechaInicio").optional().isISO8601().withMessage("Fecha inicio inválida"),
     query("fechaFin").optional().isISO8601().withMessage("Fecha fin inválida"),
@@ -75,14 +75,14 @@ export const validarEliminarCobro = [
 
 export const validarObtenerSaldoCobro = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     param("id").isMongoId().withMessage("ID inválido"),
     validateField
 ];
 
 export const validarObtenerCobrosPorCliente = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     param("id").isMongoId().withMessage("ID cliente inválido"),
     query("limite").optional().isInt({ min: 1 }).withMessage("Límite debe ser positivo"),
     query("desde").optional().isInt({ min: 0 }).withMessage("Desde debe ser no negativo"),
@@ -91,7 +91,7 @@ export const validarObtenerCobrosPorCliente = [
 
 export const validarObtenerComisiones = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     query("fechaInicio").optional().isISO8601().withMessage("Fecha inicio inválida"),
     query("fechaFin").optional().isISO8601().withMessage("Fecha fin inválida"),
     validateField

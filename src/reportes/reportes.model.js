@@ -7,7 +7,10 @@ const reporteSchema = new Schema({
         required: true
     },
     descripcion: String,
-    datos: Schema.Types.Mixed,
+    datos: {
+        type: Schema.Types.Object,
+        default: {}
+    },
     generadoPor: {
         type: Schema.Types.ObjectId,
         ref: "Usuario",

@@ -35,7 +35,14 @@ export const crearProveedor = async (req, res) => {
 export const obtenerProveedores = async (req, res) => {
     try {
         const { limite = 10, desde = 0 } = req.query;
-        const query = { estado: true };
+        let query = { estado: true };
+
+        // Filtro por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE") {
+            query.vendedorAsignado = req.usuario._id;
+        } else if (req.usuario.rol === "GERENTE_ROLE") {
+            query.gerenteAsignado = req.usuario._id;
+        }
 
         const [total, proveedores] = await Promise.all([
             Proveedor.countDocuments(query),
@@ -44,6 +51,8 @@ export const obtenerProveedores = async (req, res) => {
                 .limit(Number(limite))
                 .sort({ creadoEn: -1 })
                 .populate("creadoPor", "nombre apellido usuario")
+                .populate("gerenteAsignado", "nombre usuario")
+                .populate("vendedorAsignado", "nombre usuario")
         ]);
 
         return res.status(200).json({
@@ -63,12 +72,28 @@ export const obtenerProveedores = async (req, res) => {
 export const obtenerProveedorPorId = async (req, res) => {
     try {
         const { id } = req.params;
-        const proveedor = await Proveedor.findById(id).populate("creadoPor", "nombre apellido usuario");
+        const proveedor = await Proveedor.findById(id)
+            .populate("creadoPor", "nombre apellido usuario")
+            .populate("gerenteAsignado", "nombre usuario")
+            .populate("vendedorAsignado", "nombre usuario");
 
         if (!proveedor) {
             return res.status(404).json({
                 success: false,
                 message: "Proveedor no encontrado"
+            });
+        }
+
+        // Validar acceso por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE" && proveedor.vendedorAsignado?._id.toString() !== req.usuario._id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: "No tiene permisos para ver este proveedor"
+            });
+        } else if (req.usuario.rol === "GERENTE_ROLE" && proveedor.gerenteAsignado?._id.toString() !== req.usuario._id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: "No tiene permisos para ver este proveedor"
             });
         }
 
@@ -178,6 +203,13 @@ export const buscarProveedoresActivos = async (req, res) => {
         const { busqueda, limite = 10, desde = 0 } = req.query;
         const query = { estado: true };
 
+        // Filtro por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE") {
+            query.vendedorAsignado = req.usuario._id;
+        } else if (req.usuario.rol === "GERENTE_ROLE") {
+            query.gerenteAsignado = req.usuario._id;
+        }
+
         if (busqueda) {
             query.$or = [
                 { nombre: { $regex: busqueda, $options: "i" } },
@@ -195,6 +227,8 @@ export const buscarProveedoresActivos = async (req, res) => {
                 .limit(Number(limite))
                 .sort({ nombre: 1 })
                 .populate("creadoPor", "nombre apellido usuario")
+                .populate("gerenteAsignado", "nombre usuario")
+                .populate("vendedorAsignado", "nombre usuario")
         ]);
 
         return res.status(200).json({

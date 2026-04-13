@@ -6,6 +6,8 @@ import helmet from "helmet";
 import morgan from "morgan";
 import cron from "node-cron";
 import axios from "axios";
+import http from "http";
+import { Server as SocketIOServer } from "socket.io";
 import apiLimiter from "../src/middlewares/rate-limit-validator.js";
 import { dbConnection } from "./mongo.js";
 
@@ -21,6 +23,7 @@ import cobroClienteRoutes from "../src/cobroCliente/cobroCliente.routes.js";
 import reportesRoutes from "../src/reportes/reportes.routes.js";
 import auditoriaRoutes from "../src/auditoria/auditoria.routes.js";
 import { crearAdmin } from "./admin-default.js";
+import { iniciarCronVencidos } from "../src/crons/vencidosCron.js";
 
 const middlewares = (app) => {
     app.use(express.urlencoded({ extended: false }));
@@ -55,7 +58,7 @@ const routes = (app) => {
     app.use("/sistemasCuentasPorPagarYCobrar/v1/facturasPorCobrar", facturaPorCobrarRoutes);
 
     // Rutas de pagos a proveedores
-    app.use("/sistemasCuentasPorPagarYCobrar/v1/pagosProveedores", pagoProveedorRoutes);
+    app.use("/sistemasCuentasPorPagarYCobrar/v1/pagoProveedor", pagoProveedorRoutes);
 
     // Rutas de cobros de clientes
     app.use("/sistemasCuentasPorPagarYCobrar/v1/cobrosClientes", cobroClienteRoutes);
@@ -80,13 +83,37 @@ const conectarDB = async () => {
 };
 
 export const initServer = () => {
-    const app = express()
+    const app = express();
+    const httpServer = http.createServer(app);
+    const io = new SocketIOServer(httpServer, {
+        cors: {
+            origin: "*",
+            methods: ["GET", "POST"]
+        }
+    });
+
+    // Exportar io globalmente para usarlo en otros módulos
+    global.io = io;
+
+    // Manejar conexiones de Socket.io
+    io.on("connection", (socket) => {
+        console.log(`✅ Cliente conectado: ${socket.id}`);
+
+        socket.on("disconnect", () => {
+            console.log(`❌ Cliente desconectado: ${socket.id}`);
+        });
+    });
+
     try{
-        middlewares(app)
-        conectarDB()
-        routes(app)
-        app.listen(process.env.PORT)
-        console.log(`\n🚀 Servidor ejecutándose en puerto ${process.env.PORT}\n`)
+        middlewares(app);
+        conectarDB();
+        routes(app);
+        iniciarCronVencidos();
+        
+        httpServer.listen(process.env.PORT);
+        console.log(`\n🚀 Servidor ejecutándose en puerto ${process.env.PORT}\n`);
+        console.log(`🔌 WebSockets habilitados en ws://localhost:${process.env.PORT}\n`);
+        
         cron.schedule("*/5 * * * *", async () => {
             try {
                 await axios.get(`http://localhost:${process.env.PORT}/ping`);

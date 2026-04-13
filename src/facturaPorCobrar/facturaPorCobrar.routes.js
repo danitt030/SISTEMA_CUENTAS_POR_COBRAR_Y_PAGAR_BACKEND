@@ -32,10 +32,17 @@ import {
     exportarFacturasCobrarValidator
 } from "../middlewares/facturaPorCobrar-validators.js";
 
+import { crearAuditoriaMiddleware } from "../middlewares/auditoria-validators.js";
+
 const router = Router();
 
 // Crear factura por cobrar
-router.post("/crear", crearFacturaCobrarValidator, crearFacturaCobrar);
+router.post(
+    "/crear",
+    crearFacturaCobrarValidator,
+    crearAuditoriaMiddleware("CREAR", "FACTURAS_COBRAR", (req) => `Creación de factura por cobrar: ${req.body.numeroFactura}`),
+    crearFacturaCobrar
+);
 
 // Obtener todas las facturas por cobrar
 router.get("/", obtenerFacturasCobrarValidator, obtenerFacturasCobrar);
@@ -44,16 +51,31 @@ router.get("/", obtenerFacturasCobrarValidator, obtenerFacturasCobrar);
 router.get("/obtenerPorId/:id", obtenerFacturaCobrarPorIdValidator, obtenerFacturaCobrarPorId);
 
 // Actualizar factura por cobrar
-router.put("/actualizarFactura/:id", actualizarFacturaCobrarValidator, actualizarFacturaCobrar);
+router.put(
+    "/actualizarFactura/:id",
+    actualizarFacturaCobrarValidator,
+    crearAuditoriaMiddleware("ACTUALIZAR", "FACTURAS_COBRAR", (req) => `Actualización de factura por cobrar: ${req.params.id}`),
+    actualizarFacturaCobrar
+);
 
 // Buscar facturas activas por estado
 router.get("/buscar/activas", buscarFacturasActivasCobrarValidator, buscarFacturasActivasCobrar);
 
 // Desactivar factura por cobrar (soft delete)
-router.delete("/desactivar/:id", desactivarFacturaCobrarValidator, desactivarFacturaCobrar);
+router.delete(
+    "/desactivar/:id",
+    desactivarFacturaCobrarValidator,
+    crearAuditoriaMiddleware("ELIMINAR", "FACTURAS_COBRAR", (req) => `Desactivación de factura por cobrar: ${req.params.id}`),
+    desactivarFacturaCobrar
+);
 
 // Eliminar factura por cobrar (hard delete - admin only)
-router.delete("/eliminar/:id", eliminarFacturaCobrarValidator, eliminarFacturaCobrar);
+router.delete(
+    "/eliminar/:id",
+    eliminarFacturaCobrarValidator,
+    crearAuditoriaMiddleware("ELIMINAR", "FACTURAS_COBRAR", (req) => `Eliminación de factura por cobrar: ${req.params.id}`),
+    eliminarFacturaCobrar
+);
 
 // Obtener saldo de factura por cobrar
 router.get("/saldo/:id", obtenerSaldoFacturaCobrarValidator, obtenerSaldoFacturaCobrar);
@@ -68,12 +90,27 @@ router.get("/vencidas", obtenerFacturasVencidasValidator, obtenerFacturasVencida
 router.get("/proximas-vencer", obtenerFacturasProximasValidator, obtenerFacturasProximas);
 
 // Marcar factura como vencida
-router.patch("/marcar-vencida/:id", marcarFacturaVencidaValidator, marcarFacturaVencida);
+router.patch(
+    "/marcar-vencida/:id",
+    marcarFacturaVencidaValidator,
+    crearAuditoriaMiddleware("ACTUALIZAR", "FACTURAS_COBRAR", (req) => `Marcación de factura como vencida: ${req.params.id}`),
+    marcarFacturaVencida
+);
 
 // Enviar recordatorio
-router.post("/recordatorio/:id", enviarRecordatorioValidator, enviarRecordatorio);
+router.post(
+    "/recordatorio/:id",
+    enviarRecordatorioValidator,
+    crearAuditoriaMiddleware("LEER", "FACTURAS_COBRAR", (req) => `Envío de recordatorio de factura: ${req.params.id}`),
+    enviarRecordatorio
+);
 
 // Exportar facturas por cobrar a Excel
-router.get("/exportar/excel", exportarFacturasCobrarValidator, exportarFacturasCobrar);
+router.get(
+    "/exportar/excel",
+    exportarFacturasCobrarValidator,
+    crearAuditoriaMiddleware("EXPORTAR", "FACTURAS_COBRAR", (req) => "Exportación de facturas por cobrar a Excel"),
+    exportarFacturasCobrar
+);
 
 export default router;

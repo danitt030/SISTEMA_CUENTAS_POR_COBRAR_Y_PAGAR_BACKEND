@@ -20,7 +20,7 @@ export const crearFacturaCobrarValidator = [
 
 export const obtenerFacturasCobrarValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
     query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
     validateField,
@@ -29,7 +29,7 @@ export const obtenerFacturasCobrarValidator = [
 
 export const obtenerFacturaCobrarPorIdValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     param("id").isMongoId().withMessage("No es un ID válido"),
     validateField,
     handleErrors
@@ -50,7 +50,7 @@ export const actualizarFacturaCobrarValidator = [
 
 export const buscarFacturasActivasCobrarValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     query("estado").optional().isIn(["PENDIENTE", "PARCIAL", "COBRADA", "VENCIDA"]),
     query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
     query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
@@ -76,7 +76,7 @@ export const eliminarFacturaCobrarValidator = [
 
 export const obtenerSaldoFacturaCobrarValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     param("id").isMongoId().withMessage("No es un ID válido"),
     validateField,
     handleErrors
@@ -84,7 +84,7 @@ export const obtenerSaldoFacturaCobrarValidator = [
 
 export const obtenerFacturasPorClienteValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     param("id").isMongoId().withMessage("No es un ID válido"),
     query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
     query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
@@ -94,7 +94,7 @@ export const obtenerFacturasPorClienteValidator = [
 
 export const obtenerFacturasVencidasValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE"),
     query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
     query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
     validateField,
@@ -103,7 +103,7 @@ export const obtenerFacturasVencidasValidator = [
 
 export const obtenerFacturasProximasValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE"),
     query("dias").optional().isNumeric().withMessage("Días debe ser número"),
     query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
     query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
@@ -121,7 +121,7 @@ export const marcarFacturaVencidaValidator = [
 
 export const enviarRecordatorioValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     param("id").isMongoId().withMessage("No es un ID válido"),
     validateField,
     handleErrors

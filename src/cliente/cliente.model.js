@@ -98,6 +98,18 @@ const clienteSchema = Schema({
         default: "CORRIENTE"
     },
 
+    // Asignación de personal
+    gerenteAsignado: {
+        type: Schema.Types.ObjectId,
+        ref: "Usuario",
+        default: null
+    },
+    vendedorAsignado: {
+        type: Schema.Types.ObjectId,
+        ref: "Usuario",
+        default: null
+    },
+
     // Auditoría
     estado: {
         type: Boolean,

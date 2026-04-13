@@ -50,10 +50,38 @@ export const crearFacturaCobrar = async (req, res) => {
 export const obtenerFacturasCobrar = async (req, res) => {
     try {
         const { limite = 10, desde = 0 } = req.query;
+        let filtro = {};
+
+        // Filtro por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE") {
+            // VENDEDOR solo ve facturas de clientes asignados
+            const clientesAsignados = await Cliente.find({ vendedorAsignado: req.usuario._id }).select("_id");
+            if (clientesAsignados.length > 0) {
+                filtro.cliente = { $in: clientesAsignados.map(c => c._id) };
+            } else {
+                return res.status(200).json({
+                    success: true,
+                    total: 0,
+                    facturas: []
+                });
+            }
+        } else if (req.usuario.rol === "GERENTE_ROLE") {
+            // GERENTE ve facturas de clientes asignados
+            const clientesAsignados = await Cliente.find({ gerenteAsignado: req.usuario._id }).select("_id");
+            if (clientesAsignados.length > 0) {
+                filtro.cliente = { $in: clientesAsignados.map(c => c._id) };
+            } else {
+                return res.status(200).json({
+                    success: true,
+                    total: 0,
+                    facturas: []
+                });
+            }
+        }
         
         const [total, facturas] = await Promise.all([
-            FacturaPorCobrar.countDocuments({ activo: true }),
-            FacturaPorCobrar.find({ activo: true })
+            FacturaPorCobrar.countDocuments(filtro),
+            FacturaPorCobrar.find(filtro)
                 .populate("cliente", "nombre numeroDocumento")
                 .populate("creadoPor", "nombre usuario")
                 .limit(Number(limite))
@@ -87,6 +115,25 @@ export const obtenerFacturaCobrarPorId = async (req, res) => {
             });
         }
 
+        // Validar acceso por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE") {
+            const cliente = await Cliente.findById(factura.cliente);
+            if (cliente.vendedorAsignado?.toString() !== req.usuario._id.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: "No tiene permisos para ver esta factura"
+                });
+            }
+        } else if (req.usuario.rol === "GERENTE_ROLE") {
+            const cliente = await Cliente.findById(factura.cliente);
+            if (cliente.gerenteAsignado?.toString() !== req.usuario._id.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: "No tiene permisos para ver esta factura"
+                });
+            }
+        }
+
         return res.status(200).json({
             success: true,
             factura
@@ -102,7 +149,7 @@ export const obtenerFacturaCobrarPorId = async (req, res) => {
 export const actualizarFacturaCobrar = async (req, res) => {
     try {
         const { id } = req.params;
-        const { numeroFactura, cliente, monto, moneda, estado, fechaEmision, fechaVencimiento, descripcion } = req.body;
+        const { numeroFactura, cliente, monto, moneda, estado, fechaEmision, fechaVencimiento, descripcion, activo } = req.body;
 
         const facturaExiste = await FacturaPorCobrar.findById(id);
         if (!facturaExiste) {
@@ -137,6 +184,7 @@ export const actualizarFacturaCobrar = async (req, res) => {
                 fechaEmision,
                 fechaVencimiento,
                 descripcion,
+                activo,
                 actualizadoEn: new Date()
             },
             { returnDocument: "after" }
@@ -161,6 +209,31 @@ export const buscarFacturasActivasCobrar = async (req, res) => {
 
         const condiciones = { activo: true };
         if (estado) condiciones.estado = estado;
+
+        // Filtro por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE") {
+            const clientesAsignados = await Cliente.find({ vendedorAsignado: req.usuario._id }).select("_id");
+            if (clientesAsignados.length > 0) {
+                condiciones.cliente = { $in: clientesAsignados.map(c => c._id) };
+            } else {
+                return res.status(200).json({
+                    success: true,
+                    total: 0,
+                    facturas: []
+                });
+            }
+        } else if (req.usuario.rol === "GERENTE_ROLE") {
+            const clientesAsignados = await Cliente.find({ gerenteAsignado: req.usuario._id }).select("_id");
+            if (clientesAsignados.length > 0) {
+                condiciones.cliente = { $in: clientesAsignados.map(c => c._id) };
+            } else {
+                return res.status(200).json({
+                    success: true,
+                    total: 0,
+                    facturas: []
+                });
+            }
+        }
 
         const [total, facturas] = await Promise.all([
             FacturaPorCobrar.countDocuments(condiciones),
@@ -305,6 +378,19 @@ export const obtenerFacturasPorCliente = async (req, res) => {
             });
         }
 
+        // Validar acceso por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE" && clienteExiste.vendedorAsignado?.toString() !== req.usuario._id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: "No tiene permisos para ver las facturas de este cliente"
+            });
+        } else if (req.usuario.rol === "GERENTE_ROLE" && clienteExiste.gerenteAsignado?.toString() !== req.usuario._id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: "No tiene permisos para ver las facturas de este cliente"
+            });
+        }
+
         const [total, facturas] = await Promise.all([
             FacturaPorCobrar.countDocuments({ cliente: id, activo: true }),
             FacturaPorCobrar.find({ cliente: id, activo: true })
@@ -333,17 +419,45 @@ export const obtenerFacturasVencidas = async (req, res) => {
         const { limite = 10, desde = 0 } = req.query;
         const hoy = new Date();
 
+        const condicion = {
+            $or: [
+                { estado: "VENCIDA" },  // Facturas marcadas como vencidas
+                {
+                    fechaVencimiento: { $lt: hoy },
+                    estado: { $in: ["PENDIENTE", "PARCIAL"] }
+                }  // O facturas pendientes cuya fecha ya pasó
+            ],
+            activo: true
+        };
+
+        // Filtro por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE") {
+            const clientesAsignados = await Cliente.find({ vendedorAsignado: req.usuario._id }).select("_id");
+            if (clientesAsignados.length > 0) {
+                condicion.cliente = { $in: clientesAsignados.map(c => c._id) };
+            } else {
+                return res.status(200).json({
+                    success: true,
+                    total: 0,
+                    facturas: []
+                });
+            }
+        } else if (req.usuario.rol === "GERENTE_ROLE") {
+            const clientesAsignados = await Cliente.find({ gerenteAsignado: req.usuario._id }).select("_id");
+            if (clientesAsignados.length > 0) {
+                condicion.cliente = { $in: clientesAsignados.map(c => c._id) };
+            } else {
+                return res.status(200).json({
+                    success: true,
+                    total: 0,
+                    facturas: []
+                });
+            }
+        }
+
         const [total, facturas] = await Promise.all([
-            FacturaPorCobrar.countDocuments({
-                fechaVencimiento: { $lt: hoy },
-                estado: { $in: ["PENDIENTE", "PARCIAL"] },
-                activo: true
-            }),
-            FacturaPorCobrar.find({
-                fechaVencimiento: { $lt: hoy },
-                estado: { $in: ["PENDIENTE", "PARCIAL"] },
-                activo: true
-            })
+            FacturaPorCobrar.countDocuments(condicion),
+            FacturaPorCobrar.find(condicion)
                 .populate("cliente", "nombre numeroDocumento correo")
                 .populate("creadoPor", "nombre usuario")
                 .limit(Number(limite))
@@ -370,17 +484,40 @@ export const obtenerFacturasProximas = async (req, res) => {
         const hoy = new Date();
         const fechaLimite = new Date(hoy.getTime() + dias * 24 * 60 * 60 * 1000);
 
+        let condicion = {
+            fechaVencimiento: { $gte: hoy, $lte: fechaLimite },
+            estado: { $in: ["PENDIENTE", "PARCIAL"] },
+            activo: true
+        };
+
+        // Filtro por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE") {
+            const clientesAsignados = await Cliente.find({ vendedorAsignado: req.usuario._id }).select("_id");
+            if (clientesAsignados.length > 0) {
+                condicion.cliente = { $in: clientesAsignados.map(c => c._id) };
+            } else {
+                return res.status(200).json({
+                    success: true,
+                    total: 0,
+                    facturas: []
+                });
+            }
+        } else if (req.usuario.rol === "GERENTE_ROLE") {
+            const clientesAsignados = await Cliente.find({ gerenteAsignado: req.usuario._id }).select("_id");
+            if (clientesAsignados.length > 0) {
+                condicion.cliente = { $in: clientesAsignados.map(c => c._id) };
+            } else {
+                return res.status(200).json({
+                    success: true,
+                    total: 0,
+                    facturas: []
+                });
+            }
+        }
+
         const [total, facturas] = await Promise.all([
-            FacturaPorCobrar.countDocuments({
-                fechaVencimiento: { $gte: hoy, $lte: fechaLimite },
-                estado: { $in: ["PENDIENTE", "PARCIAL"] },
-                activo: true
-            }),
-            FacturaPorCobrar.find({
-                fechaVencimiento: { $gte: hoy, $lte: fechaLimite },
-                estado: { $in: ["PENDIENTE", "PARCIAL"] },
-                activo: true
-            })
+            FacturaPorCobrar.countDocuments(condicion),
+            FacturaPorCobrar.find(condicion)
                 .populate("cliente", "nombre numeroDocumento correo")
                 .populate("creadoPor", "nombre usuario")
                 .limit(Number(limite))
