@@ -97,10 +97,7 @@ export const initServer = () => {
 
     // Manejar conexiones de Socket.io
     io.on("connection", (socket) => {
-        console.log(`✅ Cliente conectado: ${socket.id}`);
-
         socket.on("disconnect", () => {
-            console.log(`❌ Cliente desconectado: ${socket.id}`);
         });
     });
 
@@ -111,15 +108,12 @@ export const initServer = () => {
         iniciarCronVencidos();
         
         httpServer.listen(process.env.PORT);
-        console.log(`\n🚀 Servidor ejecutándose en puerto ${process.env.PORT}\n`);
-        console.log(`🔌 WebSockets habilitados en ws://localhost:${process.env.PORT}\n`);
         
         cron.schedule("*/5 * * * *", async () => {
             try {
                 await axios.get(`http://localhost:${process.env.PORT}/ping`);
                 console.log("Ping interno enviado para mantener el servidor activo");
             }catch(err){
-                console.error("Error al enviar ping:", err.message);
             }
         });
     }catch(err){

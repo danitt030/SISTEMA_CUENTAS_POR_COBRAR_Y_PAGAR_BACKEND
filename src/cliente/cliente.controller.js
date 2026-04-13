@@ -2,12 +2,40 @@ import Cliente from "./cliente.model.js";
 import FacturaPorCobrar from "../facturaPorCobrar/facturaPorCobrar.model.js";
 import CobroCliente from "../cobroCliente/cobroCliente.model.js";
 import XLSX from "xlsx";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
+import { descargarExcel } from "../helpers/excel-generator.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Función auxiliar para auto-crear Cliente cuando se registra un Usuario CLIENTE_ROLE
+export const crearClienteAutomatico = async (usuarioId, nombreUsuario, correoUsuario, telefonoUsuario, tipoDocumento, numeroDocumento) => {
+    try {
+        const clienteExistente = await Cliente.findOne({ usuarioAsociado: usuarioId });
+        
+        if (clienteExistente) {
+            return clienteExistente;
+        }
+        
+        const nuevoCliente = new Cliente({
+            nombre: nombreUsuario,
+            correo: correoUsuario,
+            telefono: telefonoUsuario,
+            tipoDocumento: tipoDocumento,
+            numeroDocumento: numeroDocumento,
+            direccion: "Por especificar",
+            ciudad: "Guatemala",
+            departamento: "Guatemala",
+            condicionPago: "CONTADO",
+            usuarioAsociado: usuarioId,
+            creadoPor: usuarioId,
+            estado: true
+        });
+        
+        const clienteCreado = await nuevoCliente.save();
+        console.log("✅ Cliente automático creado:", clienteCreado._id);
+        return clienteCreado;
+    } catch (err) {
+        console.error("❌ Error al crear Cliente automático:", err.message);
+        throw err;
+    }
+};
 
 export const crearCliente = async (req, res) => {
     try {
@@ -380,44 +408,10 @@ export const exportarClientes = async (req, res) => {
             "Límite Crédito": c.limiteCreditoMes
         }));
 
-        const ws = XLSX.utils.json_to_sheet(datos);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Clientes");
-
-        ws["!cols"] = [
-            { wch: 25 },
-            { wch: 15 },
-            { wch: 18 },
-            { wch: 15 },
-            { wch: 25 },
-            { wch: 15 },
-            { wch: 15 },
-            { wch: 15 },
-            { wch: 15 },
-            { wch: 15 },
-            { wch: 15 }
-        ];
-
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const filename = `Clientes_${timestamp}.xlsx`;
-        const excelDir = path.join(__dirname, "../../public/EXCEL");
-
-        if (!fs.existsSync(excelDir)) {
-            fs.mkdirSync(excelDir, { recursive: true });
-        }
-
-        const filepath = path.join(excelDir, filename);
-        XLSX.writeFile(wb, filepath);
-
-        return res.status(200).json({
-            success: true,
-            message: "Archivo Excel generado correctamente",
-            total: clientes.length,
-            archivo: filename,
-            ruta: `public/EXCEL/${filename}`,
-            rutaCompleta: filepath
-        });
+        // ✅ NUEVO: Descargar directamente sin guardar
+        descargarExcel(datos, "Clientes", "Clientes", res);
     } catch (err) {
+        console.error("❌ Error en exportarClientes:", err.message);
         return res.status(500).json({
             success: false,
             message: "Error al exportar clientes",
@@ -435,9 +429,9 @@ export const exportarClientes = async (req, res) => {
  */
 export const obtenerMiPerfil = async (req, res) => {
     try {
-        const clienteId = req.usuario._id;
+        const usuarioId = req.usuario._id;
 
-        const cliente = await Cliente.findById(clienteId)
+        const cliente = await Cliente.findOne({ usuarioAsociado: usuarioId })
             .select("nombre nombreContacto telefonoContacto correoContacto tipoDocumento numeroDocumento nit direccion ciudad departamento correo telefono telefonoSecundario condicionPago diasCredito limiteCreditoMes banco numeroCuenta creadoEn")
             .populate("creadoPor", "nombre usuario");
 
@@ -466,9 +460,9 @@ export const obtenerMiPerfil = async (req, res) => {
 export const obtenerMisFacturas = async (req, res) => {
     try {
         const { limite = 10, desde = 0 } = req.query;
-        const clienteId = req.usuario._id;
+        const usuarioId = req.usuario._id;
 
-        const cliente = await Cliente.findById(clienteId);
+        const cliente = await Cliente.findOne({ usuarioAsociado: usuarioId });
         if (!cliente) {
             return res.status(404).json({
                 success: false,
@@ -477,8 +471,8 @@ export const obtenerMisFacturas = async (req, res) => {
         }
 
         const [total, facturas] = await Promise.all([
-            FacturaPorCobrar.countDocuments({ cliente: clienteId, activo: true }),
-            FacturaPorCobrar.find({ cliente: clienteId, activo: true })
+            FacturaPorCobrar.countDocuments({ cliente: cliente._id, activo: true }),
+            FacturaPorCobrar.find({ cliente: cliente._id, activo: true })
                 .select("numeroFactura monto moneda estado fechaEmision fechaVencimiento descripcion")
                 .limit(Number(limite))
                 .skip(Number(desde))
@@ -555,9 +549,17 @@ export const obtenerDetalleFactura = async (req, res) => {
 export const obtenerMisCobros = async (req, res) => {
     try {
         const { limite = 10, desde = 0 } = req.query;
-        const clienteId = req.usuario._id;
+        const usuarioId = req.usuario._id;
 
-        const cobros = await CobroCliente.find({ cliente: clienteId, activo: true })
+        const cliente = await Cliente.findOne({ usuarioAsociado: usuarioId });
+        if (!cliente) {
+            return res.status(404).json({
+                success: false,
+                message: "Perfil de cliente no encontrado"
+            });
+        }
+
+        const cobros = await CobroCliente.find({ cliente: cliente._id, activo: true })
             .populate({
                 path: "facturaPorCobrar",
                 select: "numeroFactura monto"
@@ -567,7 +569,7 @@ export const obtenerMisCobros = async (req, res) => {
             .skip(Number(desde))
             .sort({ fechaCobro: -1 });
 
-        const total = await CobroCliente.countDocuments({ cliente: clienteId, activo: true });
+        const total = await CobroCliente.countDocuments({ cliente: cliente._id, activo: true });
 
         const totalCobrado = cobros.reduce((sum, cobro) => sum + cobro.montoCobrado, 0);
         const totalComisiones = cobros.reduce((sum, cobro) => sum + (cobro.comision || 0), 0);
@@ -596,9 +598,9 @@ export const obtenerMisCobros = async (req, res) => {
  */
 export const obtenerMiSaldo = async (req, res) => {
     try {
-        const clienteId = req.usuario._id;
+        const usuarioId = req.usuario._id;
 
-        const cliente = await Cliente.findById(clienteId)
+        const cliente = await Cliente.findOne({ usuarioAsociado: usuarioId })
             .select("nombre numeroDocumento correo telefono condicionPago limiteCreditoMes");
 
         if (!cliente) {
@@ -608,10 +610,10 @@ export const obtenerMiSaldo = async (req, res) => {
             });
         }
 
-        const facturas = await FacturaPorCobrar.find({ cliente: clienteId, activo: true })
+        const facturas = await FacturaPorCobrar.find({ cliente: cliente._id, activo: true })
             .select("monto estado fechaVencimiento");
 
-        const cobros = await CobroCliente.find({ cliente: clienteId, activo: true })
+        const cobros = await CobroCliente.find({ cliente: cliente._id, activo: true })
             .select("montoCobrado");
 
         const montoTotalFacturas = facturas.reduce((sum, f) => sum + f.monto, 0);

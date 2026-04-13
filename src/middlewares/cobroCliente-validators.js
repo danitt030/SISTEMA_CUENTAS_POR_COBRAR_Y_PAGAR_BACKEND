@@ -54,6 +54,7 @@ export const validarBuscarCobrosActivos = [
     query("cliente").optional().isMongoId().withMessage("ID cliente inválido"),
     query("fechaInicio").optional().isISO8601().withMessage("Fecha inicio inválida"),
     query("fechaFin").optional().isISO8601().withMessage("Fecha fin inválida"),
+    query("metodoPago").optional().isIn(["TRANSFERENCIA", "EFECTIVO", "CHEQUE", "TARJETA"]).withMessage("Método pago inválido"),
     query("limite").optional().isInt({ min: 1 }).withMessage("Límite debe ser positivo"),
     query("desde").optional().isInt({ min: 0 }).withMessage("Desde debe ser no negativo"),
     validateField

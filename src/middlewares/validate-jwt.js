@@ -42,3 +42,31 @@ export const validateJWT = async (req, res, next) => {
         })
     }
 }
+
+// ==================== JWT OPCIONAL ====================
+// Intenta validar JWT si existe, pero NO falla si no existe
+// Útil para rutas públicas que permiten autenticación opcional
+export const validateJWTOptional = async (req, res, next) => {
+    try {
+        let token = req.headers["authorization"]
+        
+        // Si no hay token, continuar sin problema
+        if (!token) {
+            return next()
+        }
+
+        token = token.replace(/^Bearer\s+/i, "")
+        const { uid } = jwt.verify(token, process.env.SECRETORPRIVATEKEY)
+        const user = await User.findById(uid)
+
+        if (user && user.estado !== false) {
+            req.usuario = user
+        }
+        // Si hay error, simplemente continuar sin usuario
+        next()
+    } catch (err) {
+        // Si hay error al validar JWT, simplemente continuar
+        // El validador decidirá si es crítico
+        next()
+    }
+}

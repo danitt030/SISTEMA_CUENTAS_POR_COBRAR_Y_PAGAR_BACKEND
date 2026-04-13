@@ -89,7 +89,6 @@ router.post(
 router.get(
     "/exportar/excel",
     exportarFacturasPagarValidator,
-    crearAuditoriaMiddleware("EXPORTAR", "FACTURAS_PAGAR", (req) => "Exportación de facturas por pagar a Excel"),
     exportarFacturasPagar
 );
 

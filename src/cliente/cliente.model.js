@@ -110,6 +110,14 @@ const clienteSchema = Schema({
         default: null
     },
 
+    // Usuario asociado (para clientes que son usuarios del sistema)
+    usuarioAsociado: {
+        type: Schema.Types.ObjectId,
+        ref: "Usuario",
+        default: null,
+        sparse: true
+    },
+
     // Auditoría
     estado: {
         type: Boolean,

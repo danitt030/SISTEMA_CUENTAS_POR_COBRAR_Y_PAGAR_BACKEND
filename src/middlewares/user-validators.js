@@ -6,6 +6,7 @@ import { hasRoles } from "./validate-roles.js";
 import { handleErrors } from "./handle-errors.js";
 
 export const registrarValidator = [
+    // Campos básicos requeridos SIEMPRE
     body("nombre").notEmpty().withMessage("El nombre es requerido"),
     body("apellido").notEmpty().withMessage("El apellido es requerido"),
     body("usuario").notEmpty().withMessage("El usuario es requerido"),
@@ -18,20 +19,62 @@ export const registrarValidator = [
     body("tipoDocumento").isIn(["DPI", "NIT", "PASAPORTE"]).withMessage("Tipo de documento no válido"),
     body("numeroDocumento").notEmpty().withMessage("El número de documento es requerido"),
     body("numeroDocumento").custom(numeroDocumentoExists),
-    // Campos qué dependen del rol
-    body("departamento").if((value, { req }) => req.body.rol !== "CLIENTE_ROLE").notEmpty().withMessage("El departamento es requerido"),
-    body("puesto").if((value, { req }) => req.body.rol !== "CLIENTE_ROLE").notEmpty().withMessage("El puesto es requerido"),
-    body("direccion").if((value, { req }) => req.body.rol !== "CLIENTE_ROLE").notEmpty().withMessage("La dirección es requerida"),
-    body("departamentoGeografico").if((value, { req }) => req.body.rol !== "CLIENTE_ROLE").notEmpty().withMessage("El departamento geográfico es requerido"),
-    body("rol").optional().isIn([
-        "ADMINISTRADOR_ROLE",
-        "GERENTE_GENERAL_ROLE",
-        "CONTADOR_ROLE",
-        "GERENTE_ROLE",
-        "VENDEDOR_ROLE",
-        "AUXILIAR_ROLE",
-        "CLIENTE_ROLE"
-    ]).withMessage("Rol no válido"),
+
+    // ==================== VALIDACIÓN INTELIGENTE POR CONTEXTO ====================
+    // Detectar contexto: ¿JWT presente? ¿Es ADMINISTRADOR?
+    
+    // Si viene "rol" en body, requiere JWT de ADMINISTRADOR
+    body("rol").custom((value, { req }) => {
+        if (!value) {
+            // No viene rol en body - es registro público, será asignado como CLIENTE_ROLE
+            return true;
+        }
+        
+        // Viene "rol" explícitamente - validar permiso
+        const token = req.headers.authorization?.split(" ")[1];
+        
+        if (!token || !req.usuario) {
+            throw new Error("Se requiere autenticación de ADMINISTRADOR para especificar un rol");
+        }
+        
+        if (req.usuario.rol !== "ADMINISTRADOR_ROLE") {
+            throw new Error("Solo ADMINISTRADOR puede crear usuarios con roles específicos");
+        }
+        
+        // Validar que sea rol válido
+        const rolesValidos = [
+            "ADMINISTRADOR_ROLE",
+            "GERENTE_GENERAL_ROLE",
+            "CONTADOR_ROLE",
+            "GERENTE_ROLE",
+            "VENDEDOR_ROLE",
+            "AUXILIAR_ROLE"
+        ];
+        
+        if (!rolesValidos.includes(value)) {
+            throw new Error("Rol no válido");
+        }
+        
+        return true;
+    }),
+
+    // Campos adicionales: SOLO si ADMINISTRADOR especificó role
+    body("departamento").if((value, { req }) => {
+        return req.body.rol && req.usuario && req.usuario.rol === "ADMINISTRADOR_ROLE";
+    }).notEmpty().withMessage("El departamento es requerido para crear usuarios"),
+    
+    body("puesto").if((value, { req }) => {
+        return req.body.rol && req.usuario && req.usuario.rol === "ADMINISTRADOR_ROLE";
+    }).notEmpty().withMessage("El puesto es requerido para crear usuarios"),
+    
+    body("direccion").if((value, { req }) => {
+        return req.body.rol && req.usuario && req.usuario.rol === "ADMINISTRADOR_ROLE";
+    }).notEmpty().withMessage("La dirección es requerida para crear usuarios"),
+    
+    body("departamentoGeografico").if((value, { req }) => {
+        return req.body.rol && req.usuario && req.usuario.rol === "ADMINISTRADOR_ROLE";
+    }).notEmpty().withMessage("El departamento geográfico es requerido para crear usuarios"),
+
     validateField,
     handleErrors
 ];

@@ -2,12 +2,7 @@ import CobroCliente from "./cobroCliente.model.js";
 import FacturaPorCobrar from "../facturaPorCobrar/facturaPorCobrar.model.js";
 import Cliente from "../cliente/cliente.model.js";
 import XLSX from "xlsx";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { descargarExcel } from "../helpers/excel-generator.js";
 
 export const crearCobroCliente = async (req, res) => {
     try {
@@ -73,7 +68,7 @@ export const obtenerCobrosClientes = async (req, res) => {
             filtro.creadoPor = req.usuario._id;
         } else if (req.usuario.rol === "GERENTE_ROLE") {
             // GERENTE ve cobros de clientes asignados a él
-            const clientesAsignados = await require("../cliente/cliente.model.js").default
+            const clientesAsignados = await Cliente
                 .find({ gerenteAsignado: req.usuario._id })
                 .select("_id");
             
@@ -200,7 +195,7 @@ export const actualizarCobro = async (req, res) => {
 
 export const buscarCobrosActivos = async (req, res) => {
     try {
-        const { cliente, fechaInicio, fechaFin, limite = 10, desde = 0 } = req.query;
+        const { cliente, fechaInicio, fechaFin, metodoPago, limite = 10, desde = 0 } = req.query;
 
         let filtro = { activo: true };
 
@@ -227,6 +222,10 @@ export const buscarCobrosActivos = async (req, res) => {
 
         if (cliente) {
             filtro.cliente = cliente;
+        }
+
+        if (metodoPago) {
+            filtro.metodoPago = metodoPago;
         }
 
         if (fechaInicio || fechaFin) {
@@ -545,29 +544,8 @@ export const exportarCobrosClientes = async (req, res) => {
             "Registrado Por": cobro.usuario?.nombre || "N/A"
         }));
 
-        const ws = XLSX.utils.json_to_sheet(datos);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Cobros de Clientes");
-
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const filename = `Cobros_Clientes_${timestamp}.xlsx`;
-        const excelDir = path.join(__dirname, "../../public/EXCEL");
-
-        if (!fs.existsSync(excelDir)) {
-            fs.mkdirSync(excelDir, { recursive: true });
-        }
-
-        const filepath = path.join(excelDir, filename);
-        XLSX.writeFile(wb, filepath);
-
-        return res.status(200).json({
-            success: true,
-            message: "Archivo exportado exitosamente",
-            archivo: filename,
-            total: datos.length,
-            ruta: `public/EXCEL/${filename}`,
-            rutaCompleta: filepath
-        });
+        // ✅ NUEVO: Descargar directamente sin guardar
+        descargarExcel(datos, "Cobros de Clientes", "Cobros_Clientes", res);
     } catch (err) {
         return res.status(500).json({
             success: false,

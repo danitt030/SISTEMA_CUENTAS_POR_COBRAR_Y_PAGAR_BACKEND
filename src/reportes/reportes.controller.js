@@ -5,12 +5,7 @@ import CobroCliente from "../cobroCliente/cobroCliente.model.js";
 import Proveedor from "../proveedor/proveedor.model.js";
 import Cliente from "../cliente/cliente.model.js";
 import XLSX from "xlsx";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { descargarExcelMultiple } from "../helpers/excel-generator.js";
 
 // 1. RESUMEN DE SALDOS - Deuda total a pagar y a cobrar
 export const resumenSaldos = async (req, res) => {
@@ -499,28 +494,8 @@ export const exportarReporte = async (req, res) => {
             "Porcentaje": "-"
         }];
 
-        const ws = XLSX.utils.json_to_sheet(datos);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Resumen General");
-
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const filename = `Reporte_${timestamp}.xlsx`;
-        const excelDir = path.join(__dirname, "../../public/EXCEL");
-
-        if (!fs.existsSync(excelDir)) {
-            fs.mkdirSync(excelDir, { recursive: true });
-        }
-
-        const filepath = path.join(excelDir, filename);
-        XLSX.writeFile(wb, filepath);
-
-        return res.status(200).json({
-            success: true,
-            message: "Reporte exportado exitosamente",
-            archivo: filename,
-            ruta: `public/EXCEL/${filename}`,
-            rutaCompleta: filepath
-        });
+        // ✅ НОВОЕ: Descargar directamente sin guardar en servidor
+        descargarExcelMultiple({ "Resumen General": datos }, "Reporte", res);
     } catch (err) {
         return res.status(500).json({
             success: false,

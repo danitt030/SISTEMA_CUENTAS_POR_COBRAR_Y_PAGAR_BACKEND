@@ -1,11 +1,7 @@
 import FacturaPorPagar from "./facturaPorPagar.model.js";
 import Proveedor from "../proveedor/proveedor.model.js";
 import XLSX from "xlsx";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { descargarExcel } from "../helpers/excel-generator.js";
 
 export const crearFacturaPagar = async (req, res) => {
     try {
@@ -440,22 +436,8 @@ export const exportarFacturasPagar = async (req, res) => {
             "Creado Por": factura.creadoPor?.nombre || "N/A"
         }));
 
-        const ws = XLSX.utils.json_to_sheet(datos);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Facturas por Pagar");
-
-        const timestamp = new Date().getTime();
-        const filename = `Facturas_Pagar_${timestamp}.xlsx`;
-        const filepath = path.join(__dirname, `../../public/EXCEL/${filename}`);
-
-        XLSX.write(wb, { bookType: "xlsx", type: "buffer" });
-        XLSX.writeFile(wb, filepath);
-
-        return res.status(200).json({
-            success: true,
-            message: "Archivo exportado exitosamente",
-            archivo: filename
-        });
+        // ✅ NUEVO: Descargar directamente sin guardar
+        descargarExcel(datos, "Facturas por Pagar", "Facturas_Pagar", res);
     } catch (err) {
         return res.status(500).json({
             success: false,
