@@ -44,11 +44,32 @@ export const iniciarSesionValidator = [
     handleErrors
 ];
 
-export const obtenerUsuarioPorIdValidator = [
+export const obtenerPerfilPropioValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "GERENTE_GENERAL_ROLE", "CONTADOR_ROLE", "GERENTE_ROLE"),
     param("uid").isMongoId().withMessage("No es un ID válido"),
     param("uid").custom(usuarioIdExists),
+    // MATRIZ DE PERMISOS:
+    // - ADMINISTRADOR: ve TODOS
+    // - GERENTE_GENERAL: ve TODOS
+    // - CONTADOR: ve TODOS
+    // - Otros: solo su propio perfil
+    param("uid").custom((value, { req }) => {
+        const usuarioIdDelToken = req.usuario._id.toString();
+        const rolDelUsuario = req.usuario.rol;
+        const esAdmin = rolDelUsuario === "ADMINISTRADOR_ROLE";
+        const esGerencial = ["GERENTE_GENERAL_ROLE", "CONTADOR_ROLE"].includes(rolDelUsuario);
+        
+        // Los que pueden ver todos
+        if (esAdmin || esGerencial) {
+            return true;
+        }
+        
+        // Los demás solo pueden ver su propio perfil
+        if (usuarioIdDelToken !== value) {
+            throw new Error("No tienes permiso para ver este perfil");
+        }
+        return true;
+    }),
     validateField,
     handleErrors
 ];
@@ -64,6 +85,8 @@ export const eliminarUsuarioValidator = [
 
 export const actualizarUsuarioValidator = [
     validateJWT,
+    // NOTA: USA actualizarPerfilPropioValidator EN LUGAR DE ESTE para actualizar perfiles de usuarios
+    // Este validador es para cambios administrativos solamente
     hasRoles("ADMINISTRADOR_ROLE", "GERENTE_GENERAL_ROLE", "CONTADOR_ROLE"),
     param("uid").isMongoId().withMessage("No es un ID válido"),
     param("uid").custom(usuarioIdExists),
@@ -73,14 +96,16 @@ export const actualizarUsuarioValidator = [
 
 export const obtenerTodosUsuariosValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "GERENTE_GENERAL_ROLE", "CONTADOR_ROLE", "GERENTE_ROLE"),
+    // MATRIZ: ADMINISTRADOR, GERENTE_GENERAL y CONTADOR ven TODOS
+    hasRoles("ADMINISTRADOR_ROLE", "GERENTE_GENERAL_ROLE", "CONTADOR_ROLE"),
     validateField,
     handleErrors
 ];
 
 export const obtenerUsuariosPorRolValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "GERENTE_GENERAL_ROLE", "CONTADOR_ROLE", "GERENTE_ROLE"),
+    // MATRIZ: Solo ADMINISTRADOR, GERENTE_GENERAL y CONTADOR ven usuarios por rol
+    hasRoles("ADMINISTRADOR_ROLE", "GERENTE_GENERAL_ROLE", "CONTADOR_ROLE"),
     param("rol").isIn([
         "ADMINISTRADOR_ROLE",
         "GERENTE_GENERAL_ROLE",
@@ -98,6 +123,32 @@ export const actualizarContraseñaValidator = [
     validateJWT,
     param("uid").isMongoId().withMessage("No es un ID válido"),
     param("uid").custom(usuarioIdExists),
+    // MATRIZ:
+    // - Cualquiera: puede cambiar su PROPIA contraseña
+    // - ADMINISTRADOR: puede cambiar TODAS
+    // - GERENTE_GENERAL: puede cambiar TODAS EXCEPTO ADMINISTRADOR
+    param("uid").custom((value, { req }) => {
+        const usuarioIdDelToken = req.usuario._id.toString();
+        const rolDelToken = req.usuario.rol;
+        
+        // Si es su propia contraseña, siempre permitir
+        if (usuarioIdDelToken === value) {
+            return true;
+        }
+        
+        // ADMINISTRADOR: puede cambiar la de TODOS
+        if (rolDelToken === "ADMINISTRADOR_ROLE") {
+            return true;
+        }
+        
+        // GERENTE_GENERAL: puede cambiar la de TODOS EXCEPTO ADMINISTRADOR
+        if (rolDelToken === "GERENTE_GENERAL_ROLE") {
+            return true;
+        }
+        
+        // Otros roles NO pueden cambiar contraseña de otros usuarios
+        throw new Error("No tienes permiso para cambiar la contraseña de otro usuario");
+    }),
     body("nuevaContraseña").isLength({ min: 6 }).withMessage("La contraseña debe tener al menos 6 caracteres"),
     validateField,
     handleErrors
@@ -126,6 +177,47 @@ export const eliminarCuentaValidator = [
     param("uid").isMongoId().withMessage("No es un ID válido"),
     param("uid").custom(usuarioIdExists),
     body("contraseña").notEmpty().withMessage("La contraseña es requerida"),
+    validateField,
+    handleErrors
+];
+
+// Validador para editar perfil SEGUN MATRIZ DE ROLES:
+// - ADMINISTRADOR: edita TODOS
+// - GERENTE_GENERAL: edita TODOS EXCEPTO ADMINISTRADOR
+// - CONTADOR: edita TODOS EXCEPTO ADMINISTRADOR y GERENTE_GENERAL
+// - Otros: solo su propio perfil
+export const actualizarPerfilPropioValidator = [
+    validateJWT,
+    param("uid").isMongoId().withMessage("No es un ID válido"),
+    param("uid").custom(usuarioIdExists),
+    param("uid").custom((value, { req }) => {
+        const usuarioIdDelToken = req.usuario._id.toString();
+        const usuarioIdEnParams = value;
+        const rolDelToken = req.usuario.rol;
+        
+        // Si es tu propio perfil, siempre puedes editar
+        if (usuarioIdDelToken === usuarioIdEnParams) {
+            return true;
+        }
+        
+        // ADMINISTRADOR: puede editar a TODOS
+        if (rolDelToken === "ADMINISTRADOR_ROLE") {
+            return true;
+        }
+        
+        // GERENTE_GENERAL: puede editar a TODOS EXCEPTO ADMINISTRADOR
+        if (rolDelToken === "GERENTE_GENERAL_ROLE") {
+            return true;
+        }
+        
+        // CONTADOR: puede editar TODOS EXCEPTO ADMINISTRADOR y GERENTE_GENERAL
+        if (rolDelToken === "CONTADOR_ROLE") {
+            return true;
+        }
+        
+        // Otros roles (GERENTE, VENDEDOR, AUXILIAR, CLIENTE): NO pueden editar otros
+        throw new Error("No tienes permiso para actualizar el perfil de otro usuario");
+    }),
     validateField,
     handleErrors
 ];

@@ -11,6 +11,11 @@ export const crearFacturaPagar = async (req, res) => {
     try {
         const { numeroFactura, proveedor, monto, moneda, estado, fechaEmision, fechaVencimiento, descripcion } = req.body;
         
+        // Validar que el monto sea válido
+        if (!monto || monto <= 0) {
+            return res.status(400).json({ success: false, message: "El monto debe ser mayor a 0" });
+        }
+
         const proveedorExiste = await Proveedor.findById(proveedor);
         if (!proveedorExiste) {
             return res.status(409).json({ success: false, message: "El proveedor no existe" });
@@ -50,10 +55,38 @@ export const crearFacturaPagar = async (req, res) => {
 export const obtenerFacturasPagar = async (req, res) => {
     try {
         const { limite = 10, desde = 0 } = req.query;
+        let filtro = {};
+
+        // Filtro por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE") {
+            // VENDEDOR solo ve facturas de proveedores asignados
+            const proveedoresAsignados = await Proveedor.find({ vendedorAsignado: req.usuario._id }).select("_id");
+            if (proveedoresAsignados.length > 0) {
+                filtro.proveedor = { $in: proveedoresAsignados.map(p => p._id) };
+            } else {
+                return res.status(200).json({
+                    success: true,
+                    total: 0,
+                    facturas: []
+                });
+            }
+        } else if (req.usuario.rol === "GERENTE_ROLE") {
+            // GERENTE ve facturas de proveedores asignados
+            const proveedoresAsignados = await Proveedor.find({ gerenteAsignado: req.usuario._id }).select("_id");
+            if (proveedoresAsignados.length > 0) {
+                filtro.proveedor = { $in: proveedoresAsignados.map(p => p._id) };
+            } else {
+                return res.status(200).json({
+                    success: true,
+                    total: 0,
+                    facturas: []
+                });
+            }
+        }
         
         const [total, facturas] = await Promise.all([
-            FacturaPorPagar.countDocuments({ activo: true }),
-            FacturaPorPagar.find({ activo: true })
+            FacturaPorPagar.countDocuments(filtro),
+            FacturaPorPagar.find(filtro)
                 .populate("proveedor", "nombre numeroDocumento")
                 .populate("creadoPor", "nombre usuario")
                 .limit(Number(limite))
@@ -87,6 +120,22 @@ export const obtenerFacturaPagarPorId = async (req, res) => {
             });
         }
 
+        // Validar acceso por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE" || req.usuario.rol === "GERENTE_ROLE") {
+            const proveedor = await Proveedor.findById(factura.proveedor._id);
+            if (req.usuario.rol === "VENDEDOR_ROLE" && proveedor.vendedorAsignado?._id.toString() !== req.usuario._id.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: "No tiene permisos para ver esta factura"
+                });
+            } else if (req.usuario.rol === "GERENTE_ROLE" && proveedor.gerenteAsignado?._id.toString() !== req.usuario._id.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: "No tiene permisos para ver esta factura"
+                });
+            }
+        }
+
         return res.status(200).json({
             success: true,
             factura
@@ -102,7 +151,7 @@ export const obtenerFacturaPagarPorId = async (req, res) => {
 export const actualizarFacturaPagar = async (req, res) => {
     try {
         const { id } = req.params;
-        const { numeroFactura, proveedor, monto, moneda, estado, fechaEmision, fechaVencimiento, descripcion } = req.body;
+        const { numeroFactura, proveedor, monto, moneda, estado, fechaEmision, fechaVencimiento, descripcion, activo } = req.body;
 
         const facturaExiste = await FacturaPorPagar.findById(id);
         if (!facturaExiste) {
@@ -137,6 +186,7 @@ export const actualizarFacturaPagar = async (req, res) => {
                 fechaEmision,
                 fechaVencimiento,
                 descripcion,
+                activo,
                 actualizadoEn: new Date()
             },
             { returnDocument: "after" }

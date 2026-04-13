@@ -65,10 +65,34 @@ export const crearCobroCliente = async (req, res) => {
 export const obtenerCobrosClientes = async (req, res) => {
     try {
         const { limite = 10, desde = 0 } = req.query;
+        let filtro = {};
+
+        // Filtro por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE") {
+            // VENDEDOR solo ve sus propios cobros
+            filtro.creadoPor = req.usuario._id;
+        } else if (req.usuario.rol === "GERENTE_ROLE") {
+            // GERENTE ve cobros de clientes asignados a él
+            const clientesAsignados = await require("../cliente/cliente.model.js").default
+                .find({ gerenteAsignado: req.usuario._id })
+                .select("_id");
+            
+            if (clientesAsignados.length > 0) {
+                filtro.cliente = { $in: clientesAsignados.map(c => c._id) };
+            } else {
+                // Si no tiene clientes asignados, devuelve vacío
+                return res.status(200).json({
+                    success: true,
+                    total: 0,
+                    listaObtenida: 0,
+                    cobros: []
+                });
+            }
+        }
 
         const [total, cobros] = await Promise.all([
-            CobroCliente.countDocuments(),
-            CobroCliente.find()
+            CobroCliente.countDocuments(filtro),
+            CobroCliente.find(filtro)
                 .populate("facturaPorCobrar", "numeroFactura monto")
                 .populate("cliente", "nombre numeroDocumento")
                 .populate("creadoPor", "nombre usuario")
@@ -107,6 +131,22 @@ export const obtenerCobroPorId = async (req, res) => {
             });
         }
 
+        // Validar acceso por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE" && cobro.creadoPor._id.toString() !== req.usuario._id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: "No tiene permisos para ver este cobro"
+            });
+        } else if (req.usuario.rol === "GERENTE_ROLE") {
+            const cliente = await require("../cliente/cliente.model.js").default.findById(cobro.cliente);
+            if (!cliente || cliente.gerenteAsignado.toString() !== req.usuario._id.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: "No tiene permisos para ver este cobro"
+                });
+            }
+        }
+
         return res.status(200).json({
             success: true,
             cobro
@@ -122,7 +162,7 @@ export const obtenerCobroPorId = async (req, res) => {
 export const actualizarCobro = async (req, res) => {
     try {
         const { id } = req.params;
-        const { montoCobrado, comision, fechaCobro, referencia, metodoPago, descripcion } = req.body;
+        const { montoCobrado, comision, fechaCobro, referencia, metodoPago, descripcion, activo } = req.body;
 
         const cobro = await CobroCliente.findById(id);
         if (!cobro) {
@@ -138,6 +178,7 @@ export const actualizarCobro = async (req, res) => {
         if (referencia) cobro.referencia = referencia;
         if (metodoPago) cobro.metodoPago = metodoPago;
         if (descripcion) cobro.descripcion = descripcion;
+        if (activo !== undefined) cobro.activo = activo;
 
         cobro.netoCobrado = (montoCobrado || cobro.montoCobrado) - (comision !== undefined ? comision : cobro.comision);
         cobro.actualizadoEn = new Date();
@@ -162,6 +203,27 @@ export const buscarCobrosActivos = async (req, res) => {
         const { cliente, fechaInicio, fechaFin, limite = 10, desde = 0 } = req.query;
 
         let filtro = { activo: true };
+
+        // Filtro por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE") {
+            filtro.creadoPor = req.usuario._id;
+        } else if (req.usuario.rol === "GERENTE_ROLE") {
+            // GERENTE ve cobros de clientes asignados
+            const clientesAsignados = await require("../cliente/cliente.model.js").default
+                .find({ gerenteAsignado: req.usuario._id })
+                .select("_id");
+            
+            if (clientesAsignados.length > 0) {
+                filtro.cliente = { $in: clientesAsignados.map(c => c._id) };
+            } else {
+                return res.status(200).json({
+                    success: true,
+                    total: 0,
+                    listaObtenida: 0,
+                    cobros: []
+                });
+            }
+        }
 
         if (cliente) {
             filtro.cliente = cliente;
@@ -316,6 +378,19 @@ export const obtenerCobrosPorCliente = async (req, res) => {
             });
         }
 
+        // Validar acceso por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE" && clienteExiste.vendedorAsignado?.toString() !== req.usuario._id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: "No tiene permisos para ver los cobros de este cliente"
+            });
+        } else if (req.usuario.rol === "GERENTE_ROLE" && clienteExiste.gerenteAsignado?.toString() !== req.usuario._id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: "No tiene permisos para ver los cobros de este cliente"
+            });
+        }
+
         const [total, cobros] = await Promise.all([
             CobroCliente.countDocuments({ cliente: id, activo: true }),
             CobroCliente.find({ cliente: id, activo: true })
@@ -348,6 +423,30 @@ export const obtenerComisionesTotales = async (req, res) => {
         const { fechaInicio, fechaFin } = req.query;
 
         let filtro = { activo: true };
+
+        // Filtro por rol
+        if (req.usuario.rol === "VENDEDOR_ROLE") {
+            filtro.creadoPor = req.usuario._id;
+        } else if (req.usuario.rol === "GERENTE_ROLE") {
+            // GERENTE ve comisiones de clientes asignados
+            const clientesAsignados = await require("../cliente/cliente.model.js").default
+                .find({ gerenteAsignado: req.usuario._id })
+                .select("_id");
+            
+            if (clientesAsignados.length === 0) {
+                return res.status(200).json({
+                    success: true,
+                    comisiones: {
+                        totalComisiones: 0,
+                        totalCobros: 0,
+                        totalNeto: 0,
+                        cantidadCobros: 0,
+                        comisionPromedio: 0
+                    }
+                });
+            }
+            filtro.cliente = { $in: clientesAsignados.map(c => c._id) };
+        }
 
         if (fechaInicio || fechaFin) {
             filtro.fechaCobro = {};

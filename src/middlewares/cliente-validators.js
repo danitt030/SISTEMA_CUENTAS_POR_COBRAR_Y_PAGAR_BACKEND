@@ -26,7 +26,7 @@ export const crearClienteValidator = [
 
 export const obtenerTodosClientesValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
     query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
     validateField,
@@ -35,7 +35,7 @@ export const obtenerTodosClientesValidator = [
 
 export const obtenerClientePorIdValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     param("id").isMongoId().withMessage("No es un ID válido"),
     validateField,
     handleErrors
@@ -55,7 +55,7 @@ export const actualizarClienteValidator = [
 
 export const buscarClientesActivosValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     query("busqueda").optional().isString().trim(),
     query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
     query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
@@ -97,7 +97,7 @@ export const verificarLimiteCreditoValidator = [
 
 export const obtenerClientesPorGerenteValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE"),
     param("id").isMongoId().withMessage("No es un ID válido"),
     query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
     query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
@@ -108,6 +108,59 @@ export const obtenerClientesPorGerenteValidator = [
 export const exportarClientesValidator = [
     validateJWT,
     hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    validateField,
+    handleErrors
+];
+
+// ============================================
+// VALIDADORES PARA PORTAL CLIENTE
+// ============================================
+
+export const obtenerMiPerfilValidator = [
+    validateJWT,
+    hasRoles("CLIENTE_ROLE"),
+    validateField,
+    handleErrors
+];
+
+export const obtenerMisFacturasValidator = [
+    validateJWT,
+    hasRoles("CLIENTE_ROLE"),
+    query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
+    query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
+    validateField,
+    handleErrors
+];
+
+export const obtenerDetalleFacturaValidator = [
+    validateJWT,
+    hasRoles("CLIENTE_ROLE"),
+    param("id").isMongoId().withMessage("No es un ID válido"),
+    validateField,
+    handleErrors
+];
+
+export const obtenerMisCobrosValidator = [
+    validateJWT,
+    hasRoles("CLIENTE_ROLE"),
+    query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
+    query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
+    validateField,
+    handleErrors
+];
+
+export const obtenerMiSaldoValidator = [
+    validateJWT,
+    hasRoles("CLIENTE_ROLE"),
+    validateField,
+    handleErrors
+];
+
+export const obtenerMisFacturasVencidasValidator = [
+    validateJWT,
+    hasRoles("CLIENTE_ROLE"),
+    query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
+    query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
     validateField,
     handleErrors
 ];

@@ -20,7 +20,7 @@ export const resumenSaldos = async (req, res) => {
         
         const pagos = await PagoProveedor.aggregate([
             { $match: { activo: true } },
-            { $group: { _id: null, totalPagado: { $sum: "$montoCobrado" } } }
+            { $group: { _id: null, totalPagado: { $sum: "$monto" } } }
         ]);
         
         const cobros = await CobroCliente.aggregate([
@@ -43,13 +43,13 @@ export const resumenSaldos = async (req, res) => {
                     total: totalFacturasPagar,
                     pagado: totalPagado,
                     pendiente: saldoPendientePagar,
-                    porcentajePagado: ((totalPagado / totalFacturasPagar) * 100).toFixed(2) + "%"
+                    porcentajePagado: totalFacturasPagar > 0 ? ((totalPagado / totalFacturasPagar) * 100).toFixed(2) + "%" : "0%"
                 },
                 facturasPorCobrar: {
                     total: totalFacturasCobar,
                     cobrado: totalCobrado,
                     pendiente: saldoPendienteCobar,
-                    porcentajeCobrado: ((totalCobrado / totalFacturasCobar) * 100).toFixed(2) + "%"
+                    porcentajeCobrado: totalFacturasCobar > 0 ? ((totalCobrado / totalFacturasCobar) * 100).toFixed(2) + "%" : "0%"
                 },
                 posicionFinanciera: {
                     debeRecibir: saldoPendienteCobar,
@@ -92,7 +92,7 @@ export const resumenPorProveedor = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            total: resultado.length,
+            cantidad: resultado.length,
             proveedores: resultado
         });
     } catch (err) {
@@ -129,7 +129,7 @@ export const resumenPorCliente = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            total: resultado.length,
+            cantidad: resultado.length,
             clientes: resultado
         });
     } catch (err) {
@@ -180,20 +180,26 @@ export const facturasPorVencer = async (req, res) => {
     }
 };
 
-// 5. FACTURAS VENCIDAS - Análisis de vencimiento
+// 5. FACTURAS VENCIDAS - Análisis de vencimiento (por fecha)
 export const facturasVencidas = async (req, res) => {
     try {
         const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0); // Reset a medianoche para comparar solo fechas
 
+        // Buscar facturas cuyo vencimiento pasó (fecha vencimiento < hoy)
         const facturasCobar = await FacturaPorCobrar.find({
-            fechaVencimiento: { $lt: hoy }
+            fechaVencimiento: { $lt: hoy },
+            activo: true,  // Solo facturas activas
+            estado: { $ne: "COBRADA" }  // Y que no estén completamente cobradas
         })
             .populate("cliente", "nombre numeroDocumento")
             .populate("creadoPor", "nombre")
             .sort({ fechaVencimiento: 1 });
 
         const facturasPagar = await FacturaPorPagar.find({
-            fechaVencimiento: { $lt: hoy }
+            fechaVencimiento: { $lt: hoy },
+            activo: true,  // Solo facturas activas
+            estado: { $ne: "PAGADA" }  // Y que no estén completamente pagadas
         })
             .populate("proveedor", "nombre numeroDocumento")
             .populate("creadoPor", "nombre")
@@ -201,6 +207,14 @@ export const facturasVencidas = async (req, res) => {
 
         const montoVencidoPorCobrar = facturasCobar.reduce((sum, f) => sum + f.monto, 0);
         const montoVencidoPorPagar = facturasPagar.reduce((sum, f) => sum + f.monto, 0);
+
+        // Calcular días promedio de vencimiento
+        const diasPromedioPorCobrar = facturasCobar.length > 0
+            ? Math.floor(facturasCobar.reduce((sum, f) => sum + Math.floor((hoy - new Date(f.fechaVencimiento)) / (1000 * 60 * 60 * 24)), 0) / facturasCobar.length)
+            : 0;
+        const diasPromedioPorPagar = facturasPagar.length > 0
+            ? Math.floor(facturasPagar.reduce((sum, f) => sum + Math.floor((hoy - new Date(f.fechaVencimiento)) / (1000 * 60 * 60 * 24)), 0) / facturasPagar.length)
+            : 0;
 
         return res.status(200).json({
             success: true,
@@ -210,9 +224,8 @@ export const facturasVencidas = async (req, res) => {
             totalVencidasPorPagar: facturasPagar.length,
             montoVencidoPorCobrar,
             montoVencidoPorPagar,
-            diasPromedioPorCobrar: facturasCobar.length > 0
-                ? Math.floor((hoy - new Date(facturasCobar[0].fechaVencimiento)) / (1000 * 60 * 60 * 24))
-                : 0
+            diasPromedioPorCobrar,
+            diasPromedioPorPagar
         });
     } catch (err) {
         return res.status(500).json({
@@ -260,7 +273,7 @@ export const pagabilidad = async (req, res) => {
         const pagos = await PagoProveedor.find();
 
         const totalFacturas = facturasPagar.reduce((sum, f) => sum + f.monto, 0);
-        const totalPagado = pagos.reduce((sum, p) => sum + (p.montoCobrado || 0), 0);
+        const totalPagado = pagos.reduce((sum, p) => sum + (p.monto || 0), 0);
 
         return res.status(200).json({
             success: true,
@@ -289,23 +302,23 @@ export const facturasPorEstado = async (req, res) => {
 
         // Agrupar por estado
         const estadoPorCobrar = porCobrar.reduce((acc, f) => {
-            const existing = acc.find(e => e._id === f.estado);
+            const existing = acc.find(e => e.estado === f.estado);
             if (existing) {
                 existing.cantidad += 1;
                 existing.monto += f.monto;
             } else {
-                acc.push({ _id: f.estado, cantidad: 1, monto: f.monto });
+                acc.push({ estado: f.estado, cantidad: 1, monto: f.monto });
             }
             return acc;
         }, []);
 
         const estadoPorPagar = porPagar.reduce((acc, f) => {
-            const existing = acc.find(e => e._id === f.estado);
+            const existing = acc.find(e => e.estado === f.estado);
             if (existing) {
                 existing.cantidad += 1;
                 existing.monto += f.monto;
             } else {
-                acc.push({ _id: f.estado, cantidad: 1, monto: f.monto });
+                acc.push({ estado: f.estado, cantidad: 1, monto: f.monto });
             }
             return acc;
         }, []);
@@ -352,7 +365,7 @@ export const topClientesDeudores = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            total: resultado.length,
+            cantidad: resultado.length,
             topDeudores: resultado
         });
     } catch (err) {
@@ -392,7 +405,7 @@ export const topProveedoresAcreedores = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            total: resultado.length,
+            cantidad: resultado.length,
             topAcreedores: resultado
         });
     } catch (err) {
@@ -459,7 +472,7 @@ export const exportarReporte = async (req, res) => {
 
         const totalFacturasPagar = facturasPagar.reduce((sum, f) => sum + f.monto, 0);
         const totalFacturasCobar = facturasCobar.reduce((sum, f) => sum + f.monto, 0);
-        const totalPagado = pagos.reduce((sum, p) => sum + (p.montoCobrado || 0), 0);
+        const totalPagado = pagos.reduce((sum, p) => sum + (p.monto || 0), 0);
         const totalCobrado = cobros.reduce((sum, c) => sum + (c.montoCobrado || 0), 0);
         const totalComisiones = cobros.reduce((sum, c) => sum + (c.comision || 0), 0);
 
