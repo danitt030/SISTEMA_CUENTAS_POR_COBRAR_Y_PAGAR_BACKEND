@@ -17,25 +17,25 @@ export const validarResumenPorProveedor = [
 
 export const validarResumenPorCliente = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE"),
     validateField
 ];
 
 export const validarFacturasPorVencer = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE"),
     validateField
 ];
 
 export const validarFacturasVencidas = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE"),
     validateField
 ];
 
 export const validarCobrabilidad = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE"),
     validateField
 ];
 
@@ -47,13 +47,13 @@ export const validarPagabilidad = [
 
 export const validarFacturasPorEstado = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE"),
     validateField
 ];
 
 export const validarTopClientesDeudores = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE"),
     query("limite").optional().isInt({ min: 1 }).withMessage("Límite debe ser positivo"),
     validateField
 ];
@@ -67,7 +67,7 @@ export const validarTopProveedoresAcreedores = [
 
 export const validarAnalisisComisiones = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE"),
     query("fechaInicio").optional().isISO8601().withMessage("Fecha inicio inválida"),
     query("fechaFin").optional().isISO8601().withMessage("Fecha fin inválida"),
     validateField
@@ -75,6 +75,6 @@ export const validarAnalisisComisiones = [
 
 export const validarExportarReporte = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE"),
     validateField
 ];

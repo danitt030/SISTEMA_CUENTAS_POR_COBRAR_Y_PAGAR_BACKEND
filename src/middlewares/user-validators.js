@@ -147,8 +147,8 @@ export const obtenerTodosUsuariosValidator = [
 
 export const obtenerUsuariosPorRolValidator = [
     validateJWT,
-    // MATRIZ: Solo ADMINISTRADOR, GERENTE_GENERAL y CONTADOR ven usuarios por rol
-    hasRoles("ADMINISTRADOR_ROLE", "GERENTE_GENERAL_ROLE", "CONTADOR_ROLE"),
+    // Permite que gerentes, vendedores y auxiliares también vean usuarios por rol para asignar
+    hasRoles("ADMINISTRADOR_ROLE", "GERENTE_GENERAL_ROLE", "CONTADOR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE", "AUXILIAR_ROLE"),
     param("rol").isIn([
         "ADMINISTRADOR_ROLE",
         "GERENTE_GENERAL_ROLE",

@@ -47,7 +47,6 @@ export const registrar = async (req, res) => {
                     usuario.numeroDocumento
                 );
             } catch (err) {
-                console.error("Error al crear Cliente automático:", err.message);
                 // No fallar el registro del usuario si falla la creación del Cliente
             }
         }

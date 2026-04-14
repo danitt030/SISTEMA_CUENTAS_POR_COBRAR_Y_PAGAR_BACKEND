@@ -544,8 +544,122 @@ export const exportarCobrosClientes = async (req, res) => {
             "Registrado Por": cobro.usuario?.nombre || "N/A"
         }));
 
-        // ✅ NUEVO: Descargar directamente sin guardar
+        // NUEVO: Descargar directamente sin guardar
         descargarExcel(datos, "Cobros de Clientes", "Cobros_Clientes", res);
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            message: err.message
+        });
+    }
+};
+
+export const registrarMiPagoCliente = async (req, res) => {
+    try {
+        const { facturaId } = req.params;
+        const { montoAbono, fechaCobro, formaPago, referencias } = req.body;
+        const usuarioId = req.usuario._id;
+
+        // 1. Verificar que la factura existe
+        const factura = await FacturaPorCobrar.findById(facturaId)
+            .populate("cliente", "_id usuarioAsociado");
+
+        if (!factura) {
+            return res.status(404).json({
+                success: false,
+                message: "Factura no encontrada"
+            });
+        }
+
+        // 2. Verificar que la factura pertenece al cliente autenticado
+        if (factura.cliente.usuarioAsociado.toString() !== usuarioId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: "No tienes permiso para pagar esta factura"
+            });
+        }
+
+        // 3. Validar que el monto no exceda el monto de la factura
+        if (montoAbono <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "El monto debe ser mayor a 0"
+            });
+        }
+
+        if (montoAbono > factura.monto) {
+            return res.status(400).json({
+                success: false,
+                message: `No puedes pagar más que el monto de la factura (${factura.monto})`
+            });
+        }
+
+        // 4. Verificar si ya está completamente pagada
+        if (factura.estado === "PAGADA") {
+            return res.status(400).json({
+                success: false,
+                message: "Esta factura ya ha sido completamente pagada"
+            });
+        }
+
+        // 5. Obtener los cobros previos de esta factura
+        const cobrosPrevios = await CobroCliente.aggregate([
+            { $match: { facturaPorCobrar: factura._id, activo: true } },
+            { $group: { _id: null, total: { $sum: "$montoCobrado" } } }
+        ]);
+
+        const montoCobradoPrevio = cobrosPrevios[0]?.total || 0;
+        const montoTotalCobrado = montoCobradoPrevio + montoAbono;
+
+        // 6. Crear el nuevo registro de cobro
+        const clienteId = factura.cliente._id;
+        const cobro = new CobroCliente({
+            numeroComprobante: `PAGO-CLI-${Date.now()}`,
+            facturaPorCobrar: facturaId,
+            cliente: clienteId,
+            montoFactura: factura.monto,
+            montoCobrado: montoAbono,
+            moneda: factura.moneda || "GTQ",
+            metodoPago: formaPago,
+            fechaCobro: new Date(fechaCobro),
+            referencia: referencias || "",
+            comision: 0,
+            netoCobrado: montoAbono,
+            descripcion: `Pago registrado por cliente - ${referencias || "Sin referencia"}`,
+            creadoPor: usuarioId,
+            activo: true
+        });
+
+        await cobro.save();
+
+        // 7. Actualizar el estado de la factura
+        let nuevoEstado = "PAGADA";
+        if (montoTotalCobrado < factura.monto) {
+            nuevoEstado = "PARCIAL";
+        }
+
+        await FacturaPorCobrar.findByIdAndUpdate(
+            facturaId,
+            { 
+                estado: nuevoEstado,
+                actualizadoEn: new Date()
+            },
+            { new: true }
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: `Pago registrado exitosamente. Factura actualizada a estado: ${nuevoEstado}`,
+            cobro: {
+                _id: cobro._id,
+                numeroComprobante: cobro.numeroComprobante,
+                montoCobrado: cobro.montoCobrado,
+                fechaCobro: cobro.fechaCobro,
+                formaPago: cobro.metodoPago
+            },
+            facturaEstado: nuevoEstado,
+            totalCobrado: montoTotalCobrado
+        });
     } catch (err) {
         return res.status(500).json({
             success: false,

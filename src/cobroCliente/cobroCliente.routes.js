@@ -10,7 +10,8 @@ import {
     obtenerSaldoCobro,
     obtenerCobrosPorCliente,
     obtenerComisionesTotales,
-    exportarCobrosClientes
+    exportarCobrosClientes,
+    registrarMiPagoCliente
 } from "../cobroCliente/cobroCliente.controller.js";
 import {
     validarCrearCobroCliente,
@@ -23,7 +24,8 @@ import {
     validarObtenerSaldoCobro,
     validarObtenerCobrosPorCliente,
     validarObtenerComisiones,
-    validarExportarCobros
+    validarExportarCobros,
+    validarRegistrarMiPago
 } from "../middlewares/cobroCliente-validators.js";
 
 import { crearAuditoriaMiddleware } from "../middlewares/auditoria-validators.js";
@@ -85,6 +87,14 @@ router.get(
     "/exportar/excel",
     validarExportarCobros,
     exportarCobrosClientes
+);
+
+// Registrar pago desde portal cliente
+router.post(
+    "/registrarMiPago/:facturaId",
+    validarRegistrarMiPago,
+    crearAuditoriaMiddleware("CREAR", "COBROS_CLIENTES", (req) => `Cliente registró pago de factura: ${req.params.facturaId}`),
+    registrarMiPagoCliente
 );
 
 export default router;

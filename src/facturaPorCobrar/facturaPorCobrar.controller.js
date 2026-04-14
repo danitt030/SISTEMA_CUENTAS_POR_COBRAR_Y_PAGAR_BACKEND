@@ -628,7 +628,7 @@ export const exportarFacturasCobrar = async (req, res) => {
             "Creado Por": factura.creadoPor?.nombre || "N/A"
         }));
 
-        // ✅ NUEVO: Descargar directamente sin guardar
+        // NUEVO: Descargar directamente sin guardar
         descargarExcel(datos, "Facturas por Cobrar", "Facturas_Cobrar", res);
     } catch (err) {
         return res.status(500).json({

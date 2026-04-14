@@ -6,7 +6,7 @@ import { handleErrors } from "./handle-errors.js";
 
 export const crearClienteValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "AUXILIAR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
     body("nombre").notEmpty().withMessage("El nombre es requerido"),
     body("tipoDocumento").isIn(["DPI", "NIT", "PASAPORTE"]).withMessage("Tipo de documento no válido"),
     body("numeroDocumento").notEmpty().withMessage("El número de documento es requerido"),
@@ -43,7 +43,7 @@ export const obtenerClientePorIdValidator = [
 
 export const actualizarClienteValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE"),
     param("id").isMongoId().withMessage("No es un ID válido"),
     body("nombre").optional().notEmpty().withMessage("El nombre no puede estar vacío"),
     body("condicionPago").optional().isIn(["CONTADO", "CREDITO"]).withMessage("Condición de pago no válida"),
@@ -81,7 +81,7 @@ export const eliminarClienteValidator = [
 
 export const obtenerSaldoClienteValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE"),
     param("id").isMongoId().withMessage("No es un ID válido"),
     validateField,
     handleErrors
@@ -89,7 +89,7 @@ export const obtenerSaldoClienteValidator = [
 
 export const verificarLimiteCreditoValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE"),
     param("id").isMongoId().withMessage("No es un ID válido"),
     validateField,
     handleErrors

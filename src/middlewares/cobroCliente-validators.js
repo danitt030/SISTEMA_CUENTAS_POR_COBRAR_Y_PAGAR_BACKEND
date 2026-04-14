@@ -5,7 +5,7 @@ import { hasRoles } from "./validate-roles.js";
 
 export const validarCrearCobroCliente = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "VENDEDOR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "VENDEDOR_ROLE", "GERENTE_GENERAL_ROLE"),
     body("numeroComprobante").notEmpty().withMessage("Número de comprobante requerido"),
     body("facturaPorCobrar").notEmpty().withMessage("Factura requerida").isMongoId().withMessage("ID factura inválido"),
     body("cliente").notEmpty().withMessage("Cliente requerido").isMongoId().withMessage("ID cliente inválido"),
@@ -22,7 +22,7 @@ export const validarCrearCobroCliente = [
 
 export const validarObtenerCobros = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     query("limite").optional().isInt({ min: 1 }).withMessage("Límite debe ser positivo"),
     query("desde").optional().isInt({ min: 0 }).withMessage("Desde debe ser no negativo"),
     validateField
@@ -30,14 +30,14 @@ export const validarObtenerCobros = [
 
 export const validarObtenerCobroPorId = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     param("id").isMongoId().withMessage("ID inválido"),
     validateField
 ];
 
 export const validarActualizarCobro = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
     param("id").isMongoId().withMessage("ID inválido"),
     body("montoCobrado").optional().isFloat({ min: 0 }).withMessage("Monto cobrado debe ser positivo"),
     body("comision").optional().isFloat({ min: 0 }).withMessage("Comisión debe ser positiva"),
@@ -50,7 +50,7 @@ export const validarActualizarCobro = [
 
 export const validarBuscarCobrosActivos = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     query("cliente").optional().isMongoId().withMessage("ID cliente inválido"),
     query("fechaInicio").optional().isISO8601().withMessage("Fecha inicio inválida"),
     query("fechaFin").optional().isISO8601().withMessage("Fecha fin inválida"),
@@ -76,14 +76,14 @@ export const validarEliminarCobro = [
 
 export const validarObtenerSaldoCobro = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     param("id").isMongoId().withMessage("ID inválido"),
     validateField
 ];
 
 export const validarObtenerCobrosPorCliente = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE"),
     param("id").isMongoId().withMessage("ID cliente inválido"),
     query("limite").optional().isInt({ min: 1 }).withMessage("Límite debe ser positivo"),
     query("desde").optional().isInt({ min: 0 }).withMessage("Desde debe ser no negativo"),
@@ -101,5 +101,16 @@ export const validarObtenerComisiones = [
 export const validarExportarCobros = [
     validateJWT,
     hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    validateField
+];
+
+export const validarRegistrarMiPago = [
+    validateJWT,
+    hasRoles("CLIENTE_ROLE"),
+    param("facturaId").isMongoId().withMessage("ID factura inválido"),
+    body("montoAbono").isFloat({ min: 0 }).withMessage("Monto debe ser positivo"),
+    body("fechaCobro").isISO8601().withMessage("Fecha cobro inválida"),
+    body("formaPago").isIn(["TRANSFERENCIA", "EFECTIVO", "CHEQUE", "TARJETA", "OTRO"]).withMessage("Forma de pago inválida"),
+    body("referencias").optional().trim(),
     validateField
 ];

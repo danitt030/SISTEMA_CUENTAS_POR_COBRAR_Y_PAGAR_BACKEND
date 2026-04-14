@@ -28,7 +28,6 @@ export const descargarExcel = (datos, nombreHoja, nombreArchivo, res) => {
         // Enviar archivo directamente
         return res.status(200).send(buffer);
     } catch (err) {
-        console.error("❌ Error al generar Excel:", err.message);
         return res.status(500).json({
             success: false,
             message: "Error al generar Excel: " + err.message
@@ -65,7 +64,6 @@ export const descargarExcelMultiple = (hojas, nombreArchivo, res) => {
 
         return res.status(200).send(buffer);
     } catch (err) {
-        console.error("❌ Error al generar Excel múltiple:", err.message);
         return res.status(500).json({
             success: false,
             message: "Error al generar Excel: " + err.message
