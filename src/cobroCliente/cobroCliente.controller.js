@@ -44,6 +44,35 @@ export const crearCobroCliente = async (req, res) => {
 
         await cobro.save();
 
+        // ACTUALIZAR ESTADO DE FACTURA: Verificar si está completamente pagada
+        const totalCobrado = await CobroCliente.aggregate([
+            {
+                $match: { facturaPorCobrar: facturaExiste._id, activo: true }
+            },
+            {
+                $group: {
+                    _id: null,
+                    montoCobradoTotal: { $sum: "$montoCobrado" }
+                }
+            }
+        ]);
+
+        if (totalCobrado.length > 0 && totalCobrado[0].montoCobradoTotal >= facturaExiste.monto) {
+            // Si está totalmente pagada, cambiar estado a COBRADA
+            await FacturaPorCobrar.findByIdAndUpdate(
+                facturaPorCobrar,
+                { estado: "COBRADA" },
+                { new: true }
+            );
+        } else if (totalCobrado.length > 0 && totalCobrado[0].montoCobradoTotal > 0) {
+            // Si está parcialmente pagada, cambiar a PARCIAL
+            await FacturaPorCobrar.findByIdAndUpdate(
+                facturaPorCobrar,
+                { estado: "PARCIAL" },
+                { new: true }
+            );
+        }
+
         return res.status(201).json({
             success: true,
             message: "Cobro creado exitosamente",
@@ -180,6 +209,37 @@ export const actualizarCobro = async (req, res) => {
 
         await cobro.save();
 
+        // ACTUALIZAR ESTADO DE FACTURA después de actualizar el cobro
+        const factura = await FacturaPorCobrar.findById(cobro.facturaPorCobrar);
+        if (factura) {
+            const totalCobrado = await CobroCliente.aggregate([
+                {
+                    $match: { facturaPorCobrar: factura._id, activo: true }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        montoCobradoTotal: { $sum: "$montoCobrado" }
+                    }
+                }
+            ]);
+
+            let nuevoEstado = "PENDIENTE";
+            if (totalCobrado.length > 0 && totalCobrado[0].montoCobradoTotal > 0) {
+                if (totalCobrado[0].montoCobradoTotal >= factura.monto) {
+                    nuevoEstado = "COBRADA";
+                } else {
+                    nuevoEstado = "PARCIAL";
+                }
+            }
+
+            await FacturaPorCobrar.findByIdAndUpdate(
+                factura._id,
+                { estado: nuevoEstado },
+                { new: true }
+            );
+        }
+
         return res.status(200).json({
             success: true,
             message: "Cobro actualizado exitosamente",
@@ -280,6 +340,37 @@ export const desactivarCobro = async (req, res) => {
             });
         }
 
+        // ACTUALIZAR ESTADO DE FACTURA después de desactivar el cobro
+        const factura = await FacturaPorCobrar.findById(cobro.facturaPorCobrar);
+        if (factura) {
+            const totalCobrado = await CobroCliente.aggregate([
+                {
+                    $match: { facturaPorCobrar: factura._id, activo: true }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        montoCobradoTotal: { $sum: "$montoCobrado" }
+                    }
+                }
+            ]);
+
+            let nuevoEstado = "PENDIENTE";
+            if (totalCobrado.length > 0 && totalCobrado[0].montoCobradoTotal > 0) {
+                if (totalCobrado[0].montoCobradoTotal >= factura.monto) {
+                    nuevoEstado = "COBRADA";
+                } else {
+                    nuevoEstado = "PARCIAL";
+                }
+            }
+
+            await FacturaPorCobrar.findByIdAndUpdate(
+                factura._id,
+                { estado: nuevoEstado },
+                { new: true }
+            );
+        }
+
         return res.status(200).json({
             success: true,
             message: "Cobro desactivado exitosamente",
@@ -304,6 +395,37 @@ export const eliminarCobro = async (req, res) => {
                 success: false,
                 message: "Cobro no encontrado"
             });
+        }
+
+        // ACTUALIZAR ESTADO DE FACTURA después de eliminar el cobro
+        const factura = await FacturaPorCobrar.findById(cobro.facturaPorCobrar);
+        if (factura) {
+            const totalCobrado = await CobroCliente.aggregate([
+                {
+                    $match: { facturaPorCobrar: factura._id, activo: true }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        montoCobradoTotal: { $sum: "$montoCobrado" }
+                    }
+                }
+            ]);
+
+            let nuevoEstado = "PENDIENTE";
+            if (totalCobrado.length > 0 && totalCobrado[0].montoCobradoTotal > 0) {
+                if (totalCobrado[0].montoCobradoTotal >= factura.monto) {
+                    nuevoEstado = "COBRADA";
+                } else {
+                    nuevoEstado = "PARCIAL";
+                }
+            }
+
+            await FacturaPorCobrar.findByIdAndUpdate(
+                factura._id,
+                { estado: nuevoEstado },
+                { new: true }
+            );
         }
 
         return res.status(200).json({
@@ -595,7 +717,7 @@ export const registrarMiPagoCliente = async (req, res) => {
         }
 
         // 4. Verificar si ya está completamente pagada
-        if (factura.estado === "PAGADA") {
+        if (factura.estado === "COBRADA") {
             return res.status(400).json({
                 success: false,
                 message: "Esta factura ya ha sido completamente pagada"
@@ -633,7 +755,7 @@ export const registrarMiPagoCliente = async (req, res) => {
         await cobro.save();
 
         // 7. Actualizar el estado de la factura
-        let nuevoEstado = "PAGADA";
+        let nuevoEstado = "COBRADA";
         if (montoTotalCobrado < factura.monto) {
             nuevoEstado = "PARCIAL";
         }

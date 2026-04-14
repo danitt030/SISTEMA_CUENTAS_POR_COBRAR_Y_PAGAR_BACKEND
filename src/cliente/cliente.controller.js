@@ -4,6 +4,51 @@ import CobroCliente from "../cobroCliente/cobroCliente.model.js";
 import XLSX from "xlsx";
 import { descargarExcel } from "../helpers/excel-generator.js";
 
+/**
+ * Función auxiliar: Validar y corregir estado de facturas basado en cobros reales
+ * Actualiza el estado si es necesario (COBRADA, PARCIAL, PENDIENTE)
+ */
+const validarYCorregirEstadoFacturas = async (facturas) => {
+    try {
+        for (let factura of facturas) {
+            const totalCobrado = await CobroCliente.aggregate([
+                {
+                    $match: { facturaPorCobrar: factura._id, activo: true }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        montoCobradoTotal: { $sum: "$montoCobrado" }
+                    }
+                }
+            ]);
+
+            const montoCobradoTotal = totalCobrado[0]?.montoCobradoTotal || 0;
+            let nuevoEstado = "PENDIENTE";
+
+            if (montoCobradoTotal >= factura.monto) {
+                nuevoEstado = "COBRADA";
+            } else if (montoCobradoTotal > 0) {
+                nuevoEstado = "PARCIAL";
+            }
+
+            // Si el estado cambió, actualizar en BD y en el objeto
+            if (factura.estado !== nuevoEstado) {
+                await FacturaPorCobrar.findByIdAndUpdate(
+                    factura._id,
+                    { estado: nuevoEstado },
+                    { new: true }
+                );
+                factura.estado = nuevoEstado;
+            }
+        }
+        return facturas;
+    } catch (err) {
+        console.error("Error validando estados de facturas:", err.message);
+        return facturas; // Retornar facturas sin cambios si hay error
+    }
+};
+
 // Función auxiliar para auto-crear Cliente cuando se registra un Usuario CLIENTE_ROLE
 export const crearClienteAutomatico = async (usuarioId, nombreUsuario, correoUsuario, telefonoUsuario, tipoDocumento, numeroDocumento) => {
     try {
@@ -489,12 +534,15 @@ export const obtenerMisFacturas = async (req, res) => {
                 .sort({ fechaEmision: -1 })
         ]);
 
+        // Validar y corregir estados de las facturas basado en cobros reales
+        const facturasCorregidas = await validarYCorregirEstadoFacturas(facturas);
+
         return res.status(200).json({
             success: true,
             total,
-            listaObtenida: facturas.length,
+            listaObtenida: facturasCorregidas.length,
             cliente: cliente.nombre,
-            facturas
+            facturas: facturasCorregidas
         });
     } catch (err) {
         return res.status(500).json({
@@ -683,8 +731,11 @@ export const obtenerMiSaldo = async (req, res) => {
         })
             .select("monto estado fechaVencimiento");
 
+        // Validar y corregir estados de las facturas
+        const facturasCorregidas = await validarYCorregirEstadoFacturas(facturas);
+
         // Obtener IDs de facturas válidas
-        const facturasIds = facturas.map(f => f._id);
+        const facturasIds = facturasCorregidas.map(f => f._id);
 
         // ===== LOGGING BEFORE COBROS QUERY =====
         console.log('Buscando cobros con:');
@@ -723,9 +774,10 @@ export const obtenerMiSaldo = async (req, res) => {
         const saldoPendiente = montoTotalFacturas - montoTotalCobrado;
 
         const hoy = new Date();
-        const facturasVencidas = facturas.filter(f => {
+        const facturasVencidas = facturasCorregidas.filter(f => {
             return (f.estado === "VENCIDA" || 
-                   (f.estado === "PENDIENTE" && f.fechaVencimiento < hoy));
+                   (f.estado === "PENDIENTE" && f.fechaVencimiento < hoy) ||
+                   (f.estado === "PARCIAL" && f.fechaVencimiento < hoy));
         }).length;
 
         return res.status(200).json({
@@ -809,23 +861,22 @@ export const obtenerMisFacturasVencidas = async (req, res) => {
             .skip(Number(desde))
             .sort({ fechaVencimiento: 1 });
 
-        const total = await FacturaPorCobrar.countDocuments({
-            cliente: cliente._id,
-            $or: [
-                { estado: "VENCIDA" },
-                {
-                    fechaVencimiento: { $lt: hoy },
-                    estado: { $in: ["PENDIENTE", "PARCIAL"] }
-                }
-            ],
-            activo: true
-        });
+        // Validar y corregir estados de las facturas para eliminar las que realmente están pagadas
+        const facturasCorregidas = await validarYCorregirEstadoFacturas(facturas);
+
+        // Filtrar solo las que sigue siendo vencidas/pendientes
+        const facturasRealesVencidas = facturasCorregidas.filter(f => 
+            f.estado === "VENCIDA" || 
+            (f.fechaVencimiento < hoy && (f.estado === "PENDIENTE" || f.estado === "PARCIAL"))
+        );
+
+        const total = facturasRealesVencidas.length;
 
         return res.status(200).json({
             success: true,
             total,
-            listaObtenida: facturas.length,
-            facturas
+            listaObtenida: facturasRealesVencidas.length,
+            facturas: facturasRealesVencidas
         });
     } catch (err) {
         return res.status(500).json({

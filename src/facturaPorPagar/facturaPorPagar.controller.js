@@ -1,7 +1,30 @@
 import FacturaPorPagar from "./facturaPorPagar.model.js";
 import Proveedor from "../proveedor/proveedor.model.js";
+import PagoProveedor from "../pagoProveedor/pagoProveedor.model.js";
 import XLSX from "xlsx";
 import { descargarExcel } from "../helpers/excel-generator.js";
+
+/**
+ * Calcula y agrega información del saldo pagado a cada factura
+ */
+const agregarSaldoAPagos = async (facturas) => {
+    try {
+        for (let factura of facturas) {
+            // Calcular total pagado para esta factura
+            const [totalPagado] = await PagoProveedor.aggregate([
+                { $match: { facturaPorPagar: factura._id, activo: true } },
+                { $group: { _id: null, montoPagado: { $sum: "$monto" } } }
+            ]);
+
+            const montoPagado = totalPagado?.montoPagado || 0;
+            factura.montoPagado = montoPagado;
+            factura.saldoPendiente = factura.monto - montoPagado;
+        }
+        return facturas;
+    } catch (error) {
+        return facturas;
+    }
+};
 
 export const crearFacturaPagar = async (req, res) => {
     try {
@@ -89,10 +112,13 @@ export const obtenerFacturasPagar = async (req, res) => {
                 .skip(Number(desde))
         ]);
 
+        // Agregar información de saldo pagado a cada factura
+        const facturasConSaldo = await agregarSaldoAPagos(facturas);
+
         return res.status(200).json({
             success: true,
             total,
-            facturas
+            facturas: facturasConSaldo
         });
     } catch (err) {
         return res.status(500).json({
@@ -132,9 +158,12 @@ export const obtenerFacturaPagarPorId = async (req, res) => {
             }
         }
 
+        // Agregar información de saldo a la factura
+        const facturasConSaldo = await agregarSaldoAPagos([factura]);
+
         return res.status(200).json({
             success: true,
-            factura
+            factura: facturasConSaldo[0]
         });
     } catch (err) {
         return res.status(500).json({
@@ -217,11 +246,14 @@ export const buscarFacturasActivasPagar = async (req, res) => {
                 .skip(Number(desde))
         ]);
 
+        // Agregar información de saldo pagado a cada factura
+        const facturasConSaldo = await agregarSaldoAPagos(facturas);
+
         return res.status(200).json({
             success: true,
             total,
             estado: estado || "TODAS",
-            facturas
+            facturas: facturasConSaldo
         });
     } catch (err) {
         return res.status(500).json({

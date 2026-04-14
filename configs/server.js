@@ -22,6 +22,7 @@ import pagoProveedorRoutes from "../src/pagoProveedor/pagoProveedor.routes.js";
 import cobroClienteRoutes from "../src/cobroCliente/cobroCliente.routes.js";
 import reportesRoutes from "../src/reportes/reportes.routes.js";
 import auditoriaRoutes from "../src/auditoria/auditoria.routes.js";
+import iaRoutes from "../src/ia/ia.routes.js";
 import { crearAdmin } from "./admin-default.js";
 import { iniciarCronVencidos } from "../src/crons/vencidosCron.js";
 
@@ -68,6 +69,9 @@ const routes = (app) => {
 
     // Rutas de auditoría
     app.use("/sistemasCuentasPorPagarYCobrar/v1/auditoria", auditoriaRoutes);
+
+    // Rutas de IA
+    app.use("/sistemasCuentasPorPagarYCobrar/v1/ia", iaRoutes);
 };
 
 const conectarDB = async () => {

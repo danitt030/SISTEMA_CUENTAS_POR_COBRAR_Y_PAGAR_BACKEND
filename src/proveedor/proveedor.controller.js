@@ -30,7 +30,7 @@ export const crearProveedor = async (req, res) => {
 export const obtenerProveedores = async (req, res) => {
     try {
         const { limite = 10, desde = 0 } = req.query;
-        let query = { estado: true };
+        let query = {};
 
         // Filtro por rol
         if (req.usuario.rol === "VENDEDOR_ROLE") {
@@ -203,7 +203,7 @@ export const eliminarProveedor = async (req, res) => {
 export const buscarProveedoresActivos = async (req, res) => {
     try {
         const { busqueda, limite = 10, desde = 0 } = req.query;
-        const query = { estado: true };
+        const query = {};
 
         // Filtro por rol
         if (req.usuario.rol === "VENDEDOR_ROLE") {
