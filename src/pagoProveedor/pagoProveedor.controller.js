@@ -246,11 +246,13 @@ export const actualizarPago = async (req, res) => {
             }
         }
 
+        console.log(`💰 Actualización de pago - Anterior: Q${pagoExiste.monto}, Monto a añadir: Q${monto}, TOTAL: Q${parseFloat(pagoExiste.monto) + parseFloat(monto)}`);
+
         const pago = await PagoProveedor.findByIdAndUpdate(
             id,
             {
                 numeroRecibo,
-                monto,
+                monto: parseFloat(pagoExiste.monto) + parseFloat(monto), // SUMA lo anterior + lo nuevo
                 moneda,
                 metodoPago,
                 fechaPago,
@@ -267,6 +269,29 @@ export const actualizarPago = async (req, res) => {
             if (factura) {
                 await validarYCorregirEstadoFacturasPagar([factura]);
             }
+
+            // Calcular saldo actualizado después de la edición
+            const [totalPagado] = await PagoProveedor.aggregate([
+                { $match: { facturaPorPagar: pago.facturaPorPagar._id, activo: true } },
+                { $group: { _id: null, montoPagado: { $sum: "$monto" } } }
+            ]);
+
+            const montoPagado = totalPagado?.montoPagado || 0;
+            const montoPendiente = pago.facturaPorPagar.monto - montoPagado;
+
+            console.log("✅ PAGO ACTUALIZADO - Saldo recalculado:", { montoPagado, montoPendiente });
+
+            return res.status(200).json({
+                success: true,
+                message: "Pago actualizado exitosamente",
+                pago,
+                saldo: {
+                    montoFactura: pago.facturaPorPagar.monto,
+                    montoPagado,
+                    montoPendiente,
+                    porcentajePagado: ((montoPagado / pago.facturaPorPagar.monto) * 100).toFixed(2) + "%"
+                }
+            });
         }
 
         return res.status(200).json({
