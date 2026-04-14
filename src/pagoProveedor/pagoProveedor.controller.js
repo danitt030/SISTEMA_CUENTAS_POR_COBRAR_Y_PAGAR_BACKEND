@@ -459,7 +459,7 @@ export const exportarPagosProveedor = async (req, res) => {
             "Registrado Por": pago.usuario?.nombre || "N/A"
         }));
 
-        // ✅ NUEVO: Descargar directamente sin guardar
+        // NUEVO: Descargar directamente sin guardar
         descargarExcel(datos, "Pagos a Proveedores", "Pagos_Proveedores", res);
     } catch (err) {
         return res.status(500).json({

@@ -44,5 +44,5 @@ export const iniciarCronVencidos = () => {
         }
     });
 
-    console.log("[CRON] ✅ Cron de facturas vencidas iniciado (se ejecuta diariamente a las 00:00)");
+    console.log("[CRON] Cron de facturas vencidas iniciado (se ejecuta diariamente a las 00:00)");
 };

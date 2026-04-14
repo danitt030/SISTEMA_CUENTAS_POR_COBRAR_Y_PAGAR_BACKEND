@@ -110,11 +110,18 @@ export const actualizarProveedor = async (req, res) => {
         const { id } = req.params;
         const { _id, creadoPor, creadoEn, ...resto } = req.body;
 
+        // Limpiar valores vacíos en campos opcionales
+        if (resto.gerenteAsignado === "" || resto.gerenteAsignado === null) {
+            resto.gerenteAsignado = null;
+        }
+
         const proveedor = await Proveedor.findByIdAndUpdate(
             id,
             resto,
             { new: true }
-        ).populate("creadoPor", "nombre apellido usuario");
+        )
+        .populate("creadoPor", "nombre apellido usuario")
+        .populate("gerenteAsignado", "nombre usuario");
 
         if (!proveedor) {
             return res.status(404).json({
@@ -302,7 +309,7 @@ export const exportarProveedores = async (req, res) => {
             "Límite Crédito": p.limiteCreditoMes
         }));
 
-        // ✅ NUEVO: Descargar directamente sin guardar
+        // NUEVO: Descargar directamente sin guardar
         descargarExcel(datos, "Proveedores", "Proveedores", res);
     } catch (err) {
         return res.status(500).json({

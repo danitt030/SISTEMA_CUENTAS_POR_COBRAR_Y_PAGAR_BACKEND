@@ -494,7 +494,7 @@ export const exportarReporte = async (req, res) => {
             "Porcentaje": "-"
         }];
 
-        // ✅ НОВОЕ: Descargar directamente sin guardar en servidor
+        // NUEVO: Descargar directamente sin guardar en servidor
         descargarExcelMultiple({ "Resumen General": datos }, "Reporte", res);
     } catch (err) {
         return res.status(500).json({

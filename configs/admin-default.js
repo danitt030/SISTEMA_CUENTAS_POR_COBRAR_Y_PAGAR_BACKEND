@@ -14,7 +14,7 @@ export const crearAdmin = async () => {
         const adminExistente = await Usuario.findOne({ rol: "ADMINISTRADOR_ROLE" });
 
         if (adminExistente) {
-            console.log("✅ Admin ya existe en la base de datos");
+            console.log("Admin ya existe en la base de datos");
             return;
         }
 

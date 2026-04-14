@@ -122,8 +122,6 @@ export const filtrarPorFechaYAccion = async (req, res) => {
 
         let filtro = {};
         
-        console.log("📋 Query params recibidos:", { fechaInicio, fechaFin, accion, limite, pagina });
-
         // Procesar fechas con mejor validación
         if (fechaInicio && String(fechaInicio).trim() !== "") {
             try {
@@ -131,10 +129,10 @@ export const filtrarPorFechaYAccion = async (req, res) => {
                 if (!isNaN(fechaInicioParsed.getTime())) {
                     filtro.timestamp = filtro.timestamp || {};
                     filtro.timestamp.$gte = fechaInicioParsed;
-                    console.log(`✅ Filtro fechaInicio: ${fechaInicioParsed}`);
+                    console.log(`Filtro fechaInicio: ${fechaInicioParsed}`);
                 }
             } catch (e) {
-                console.warn(`⚠️ Error parseando fechaInicio: ${fechaInicio}`);
+                console.warn(`Error parseando fechaInicio: ${fechaInicio}`);
             }
         }
 
@@ -146,14 +144,14 @@ export const filtrarPorFechaYAccion = async (req, res) => {
                     fechaFinParsed.setHours(23, 59, 59, 999);
                     filtro.timestamp = filtro.timestamp || {};
                     filtro.timestamp.$lte = fechaFinParsed;
-                    console.log(`✅ Filtro fechaFin: ${fechaFinParsed}`);
+                    console.log(`Filtro fechaFin: ${fechaFinParsed}`);
                 }
             } catch (e) {
-                console.warn(`⚠️ Error parseando fechaFin: ${fechaFin}`);
+                console.warn(`Error parseando fechaFin: ${fechaFin}`);
             }
         }
 
-        // ⭐ FILTRO DE ACCIÓN - MÁS ROBUSTO
+        // FILTRO DE ACCIÓN - MÁS ROBUSTO
         if (accion && String(accion).trim() !== "") {
             const accionTrimmed = String(accion).trim().toUpperCase();
             
@@ -162,13 +160,13 @@ export const filtrarPorFechaYAccion = async (req, res) => {
             
             if (accionesValidas.includes(accionTrimmed)) {
                 filtro.accion = accionTrimmed;
-                console.log(`✅ Filtro acción (VÁLIDA): ${accionTrimmed}`);
+                console.log(`Filtro acción (VÁLIDA): ${accionTrimmed}`);
             } else {
-                console.warn(`⚠️ Acción NO válida: ${accionTrimmed}`);
+                console.warn(`Acción NO válida: ${accionTrimmed}`);
             }
         }
 
-        console.log(`🔍 Filtro FINAL aplicado:`, JSON.stringify(filtro, null, 2));
+        console.log(`Filtro FINAL aplicado:`, JSON.stringify(filtro, null, 2));
 
         const logs = await Auditoria.find(filtro)
             .populate("usuario", "usuario correo nombre apellido rol")
@@ -179,8 +177,6 @@ export const filtrarPorFechaYAccion = async (req, res) => {
 
         const total = await Auditoria.countDocuments(filtro);
         const totalPaginas = Math.ceil(total / parseInt(limite));
-
-        console.log(`📊 Resultados: ${logs.length} de ${total} registros`);
 
         return res.status(200).json({
             success: true,
@@ -196,7 +192,7 @@ export const filtrarPorFechaYAccion = async (req, res) => {
             totalPaginas
         });
     } catch (err) {
-        console.error("❌ Error en filtrarPorFechaYAccion:", err.message);
+        console.error("[ERROR] Error en filtrarPorFechaYAccion:", err.message);
         return res.status(500).json({
             success: false,
             message: err.message
@@ -211,7 +207,7 @@ export const exportarLogs = async (req, res) => {
 
         let filtro = {};
         
-        console.log("📋 Exportar - Query params recibidos:", { fechaInicio, fechaFin, accion });
+        console.log("Exportar - Query params recibidos:", { fechaInicio, fechaFin, accion });
 
         // Procesar fechas con mejor validación
         if (fechaInicio && fechaInicio.trim()) {
@@ -220,10 +216,10 @@ export const exportarLogs = async (req, res) => {
                 if (!isNaN(fechaInicioParsed.getTime())) {
                     filtro.timestamp = filtro.timestamp || {};
                     filtro.timestamp.$gte = fechaInicioParsed;
-                    console.log(`✅ Exportar - Filtro fechaInicio: ${fechaInicioParsed}`);
+                    console.log(`Exportar - Filtro fechaInicio: ${fechaInicioParsed}`);
                 }
             } catch (e) {
-                console.warn(`⚠️ Error parseando fechaInicio en export: ${fechaInicio}`);
+                console.warn(`Error parseando fechaInicio en export: ${fechaInicio}`);
             }
         }
 
@@ -235,14 +231,14 @@ export const exportarLogs = async (req, res) => {
                 if (!isNaN(fechaFinParsed.getTime())) {
                     filtro.timestamp = filtro.timestamp || {};
                     filtro.timestamp.$lte = fechaFinParsed;
-                    console.log(`✅ Exportar - Filtro fechaFin: ${fechaFinParsed}`);
+                    console.log(`Exportar - Filtro fechaFin: ${fechaFinParsed}`);
                 }
             } catch (e) {
-                console.warn(`⚠️ Error parseando fechaFin en export: ${fechaFin}`);
+                console.warn(`Error parseando fechaFin en export: ${fechaFin}`);
             }
         }
 
-        // ⭐ FILTRO DE ACCIÓN - MÁS ROBUSTO
+        // FILTRO DE ACCIÓN - MÁS ROBUSTO
         if (accion && accion.trim()) {
             const accionTrimmed = String(accion).trim().toUpperCase();
             
@@ -251,13 +247,13 @@ export const exportarLogs = async (req, res) => {
             
             if (accionesValidas.includes(accionTrimmed)) {
                 filtro.accion = accionTrimmed;
-                console.log(`✅ Exportar - Filtro acción (VÁLIDA): ${accionTrimmed}`);
+                console.log(`Exportar - Filtro acción (VÁLIDA): ${accionTrimmed}`);
             } else {
-                console.warn(`⚠️ Exportar - Acción NO válida: ${accionTrimmed}`);
+                console.warn(`Exportar - Acción NO válida: ${accionTrimmed}`);
             }
         }
 
-        console.log(`📥 Filtro FINAL para exportar:`, JSON.stringify(filtro, null, 2));
+        console.log(`Filtro FINAL para exportar:`, JSON.stringify(filtro, null, 2));
 
         const logs = await Auditoria.find(filtro)
             .populate("usuario", "usuario correo nombre apellido rol")
@@ -283,10 +279,10 @@ export const exportarLogs = async (req, res) => {
             "Timestamp": log.timestamp
         }));
 
-        // ✅ NUEVO: Descargar directamente sin guardar
+        // NUEVO: Descargar directamente sin guardar
         descargarExcel(datos, "Auditoría", "Auditoria", res);
     } catch (err) {
-        console.error("❌ Error en exportarLogs:", err.message);
+        console.error("Error en exportarLogs:", err.message);
         return res.status(500).json({
             success: false,
             message: err.message

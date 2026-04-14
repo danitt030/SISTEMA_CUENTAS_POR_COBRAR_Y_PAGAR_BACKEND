@@ -167,7 +167,7 @@ export const crearAuditoriaMiddleware = (accion, modulo, getDescripcion = null) 
                         return;
                     }
 
-                    // 🔥 GUARDAR DIRECTAMENTE EN LA BD (sin usar controller)
+                    // GUARDAR DIRECTAMENTE EN LA BD (sin usar controller)
                     const evento = await Auditoria.create({
                         usuario: usuarioId,
                         accion,
@@ -181,9 +181,9 @@ export const crearAuditoriaMiddleware = (accion, modulo, getDescripcion = null) 
                         estado: "EXITOSO"
                     });
 
-                    console.log(`[AUDITORIA] ✅ Evento guardado en BD: ${accion} - ${modulo} por usuario: ${usuarioAudit}`);
+                    console.log(`[AUDITORIA] Evento guardado en BD: ${accion} - ${modulo} por usuario: ${usuarioAudit}`);
 
-                    // 🔥 EMITIR EVENTO EN TIEMPO REAL
+                    //  EMITIR EVENTO EN TIEMPO REAL
                     if (global.io) {
                         global.io.emit("auditoria:nueva", {
                             accion,
@@ -192,10 +192,10 @@ export const crearAuditoriaMiddleware = (accion, modulo, getDescripcion = null) 
                             timestamp: new Date(),
                             usuario: usuarioAudit
                         });
-                        console.log("📡 Evento emitido por WebSocket");
+                        console.log("Evento emitido por WebSocket");
                     }
                 } catch (err) {
-                    console.error("❌ Error registrando auditoría:", err.message);
+                    console.error("Error registrando auditoría:", err.message);
                     // No bloquea la respuesta al usuario
                 }
             }

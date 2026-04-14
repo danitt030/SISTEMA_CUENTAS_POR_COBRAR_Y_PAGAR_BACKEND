@@ -26,7 +26,7 @@ export const crearProveedorValidator = [
 
 export const obtenerProveedoresValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
     query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
     query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
     validateField,
@@ -35,7 +35,7 @@ export const obtenerProveedoresValidator = [
 
 export const obtenerProveedorPorIdValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
     param("id").isMongoId().withMessage("No es un ID válido"),
     validateField,
     handleErrors
@@ -43,19 +43,28 @@ export const obtenerProveedorPorIdValidator = [
 
 export const actualizarProveedorValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "GERENTE_ROLE", "VENDEDOR_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
     param("id").isMongoId().withMessage("No es un ID válido"),
     body("nombre").optional().notEmpty().withMessage("El nombre no puede estar vacío"),
+    body("tipoDocumento").optional().isIn(["DPI", "NIT", "PASAPORTE"]).withMessage("Tipo de documento no válido"),
+    body("numeroDocumento").optional().notEmpty().withMessage("El número de documento no puede estar vacío"),
+    body("nit").optional(),
+    body("direccion").optional().notEmpty().withMessage("La dirección no puede estar vacía"),
+    body("ciudad").optional().notEmpty().withMessage("La ciudad no puede estar vacía"),
+    body("departamento").optional().notEmpty().withMessage("El departamento no puede estar vacío"),
+    body("correo").optional().isEmail().withMessage("El correo no es válido"),
+    body("telefono").optional().notEmpty().withMessage("El teléfono no puede estar vacío"),
     body("condicionPago").optional().isIn(["CONTADO", "CREDITO"]).withMessage("Condición de pago no válida"),
     body("diasCredito").optional().isNumeric().withMessage("Días de crédito debe ser número"),
     body("limiteCreditoMes").optional().isNumeric().withMessage("Límite de crédito debe ser número"),
+    body("tipoCuenta").optional().isIn(["AHORRO", "CORRIENTE"]).withMessage("Tipo de cuenta no válido"),
     validateField,
     handleErrors
 ];
 
 export const desactivarProveedorValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE"),
     param("id").isMongoId().withMessage("No es un ID válido"),
     validateField,
     handleErrors
@@ -71,7 +80,7 @@ export const eliminarProveedorValidator = [
 
 export const buscarProveedoresActivosValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
     query("busqueda").optional().isString().trim(),
     query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
     query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
@@ -81,7 +90,7 @@ export const buscarProveedoresActivosValidator = [
 
 export const obtenerSaldoProveedorValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
     param("id").isMongoId().withMessage("No es un ID válido"),
     validateField,
     handleErrors

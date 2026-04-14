@@ -29,10 +29,9 @@ export const crearClienteAutomatico = async (usuarioId, nombreUsuario, correoUsu
         });
         
         const clienteCreado = await nuevoCliente.save();
-        console.log("✅ Cliente automático creado:", clienteCreado._id);
         return clienteCreado;
     } catch (err) {
-        console.error("❌ Error al crear Cliente automático:", err.message);
+        console.error("Error al crear Cliente automático:", err.message);
         throw err;
     }
 };
@@ -145,11 +144,22 @@ export const actualizarCliente = async (req, res) => {
         const { id } = req.params;
         const { _id, creadoPor, creadoEn, ...resto } = req.body;
 
+        // Limpiar valores vacíos en campos de relación
+        if (resto.gerenteAsignado === "" || resto.gerenteAsignado === null) {
+            resto.gerenteAsignado = null;
+        }
+        if (resto.vendedorAsignado === "" || resto.vendedorAsignado === null) {
+            resto.vendedorAsignado = null;
+        }
+
         const cliente = await Cliente.findByIdAndUpdate(
             id,
             resto,
             { new: true }
-        ).populate("creadoPor", "nombre apellido usuario");
+        )
+        .populate("creadoPor", "nombre apellido usuario")
+        .populate("gerenteAsignado", "nombre usuario")
+        .populate("vendedorAsignado", "nombre usuario");
 
         if (!cliente) {
             return res.status(404).json({
@@ -408,10 +418,10 @@ export const exportarClientes = async (req, res) => {
             "Límite Crédito": c.limiteCreditoMes
         }));
 
-        // ✅ NUEVO: Descargar directamente sin guardar
+        // NUEVO: Descargar directamente sin guardar
         descargarExcel(datos, "Clientes", "Clientes", res);
     } catch (err) {
-        console.error("❌ Error en exportarClientes:", err.message);
+        console.error("[ERROR] Error en exportarClientes:", err.message);
         return res.status(500).json({
             success: false,
             message: "Error al exportar clientes",
@@ -500,9 +510,10 @@ export const obtenerMisFacturas = async (req, res) => {
 export const obtenerDetalleFactura = async (req, res) => {
     try {
         const { id } = req.params;
-        const clienteId = req.usuario._id;
+        const usuarioId = req.usuario._id;
 
         const factura = await FacturaPorCobrar.findById(id)
+            .populate("cliente", "_id usuarioAsociado numeroDocumento nombre")
             .select("numeroFactura monto moneda estado fechaEmision fechaVencimiento descripcion cliente");
 
         if (!factura) {
@@ -512,7 +523,8 @@ export const obtenerDetalleFactura = async (req, res) => {
             });
         }
 
-        if (factura.cliente.toString() !== clienteId.toString()) {
+        // Validar que el cliente de la factura pertenece al usuario autenticado
+        if (!factura.cliente.usuarioAsociado || factura.cliente.usuarioAsociado.toString() !== usuarioId.toString()) {
             return res.status(403).json({
                 success: false,
                 message: "No tiene permiso para ver esta factura"
@@ -551,6 +563,7 @@ export const obtenerMisCobros = async (req, res) => {
         const { limite = 10, desde = 0 } = req.query;
         const usuarioId = req.usuario._id;
 
+        // STEP 1: Get cliente by usuarioAsociado
         const cliente = await Cliente.findOne({ usuarioAsociado: usuarioId });
         if (!cliente) {
             return res.status(404).json({
@@ -559,7 +572,34 @@ export const obtenerMisCobros = async (req, res) => {
             });
         }
 
-        const cobros = await CobroCliente.find({ cliente: cliente._id, activo: true })
+        // STEP 2: Verify cliente._id is valid and not null
+        if (!cliente._id || cliente._id.toString().trim() === "") {
+            console.error("[SECURITY] obtenerMisCobros - cliente._id es inválido o nulo");
+            return res.status(500).json({
+                success: false,
+                message: "Error de validación: ID de cliente inválido"
+            });
+        }
+
+        // STEP 5: Store clienteId explicitly for safety
+        const clienteId = cliente._id;
+        console.log(`[SECURITY] obtenerMisCobros - clienteId validado: ${clienteId}`);
+
+        // STEP 3: Get ONLY facturas for THIS CLIENT with explicit filters
+        const facturas = await FacturaPorCobrar.find({
+            cliente: clienteId,  // ONLY this client's facturas
+            activo: true
+        })
+            .select("_id");
+        const facturasIds = facturas.map(f => f._id);
+
+        // STEP 4: Get ONLY cobros from these SPECIFIC factura IDs
+        const cobros = await CobroCliente.find({ 
+            cliente: clienteId,  // DIRECT filter - no mixing clients!
+            facturaPorCobrar: { $in: facturasIds },  // Backup filter
+            activo: true,
+            montoCobrado: { $gt: 0 }
+        })
             .populate({
                 path: "facturaPorCobrar",
                 select: "numeroFactura monto"
@@ -569,7 +609,12 @@ export const obtenerMisCobros = async (req, res) => {
             .skip(Number(desde))
             .sort({ fechaCobro: -1 });
 
-        const total = await CobroCliente.countDocuments({ cliente: cliente._id, activo: true });
+        const total = await CobroCliente.countDocuments({ 
+            cliente: clienteId,  // DIRECT filter - no mixing clients!
+            facturaPorCobrar: { $in: facturasIds },  // Backup filter
+            activo: true,
+            montoCobrado: { $gt: 0 }
+        });
 
         const totalCobrado = cobros.reduce((sum, cobro) => sum + cobro.montoCobrado, 0);
         const totalComisiones = cobros.reduce((sum, cobro) => sum + (cobro.comision || 0), 0);
@@ -600,6 +645,7 @@ export const obtenerMiSaldo = async (req, res) => {
     try {
         const usuarioId = req.usuario._id;
 
+        // STEP 1: Get cliente by usuarioAsociado
         const cliente = await Cliente.findOne({ usuarioAsociado: usuarioId })
             .select("nombre numeroDocumento correo telefono condicionPago limiteCreditoMes");
 
@@ -610,14 +656,70 @@ export const obtenerMiSaldo = async (req, res) => {
             });
         }
 
-        const facturas = await FacturaPorCobrar.find({ cliente: cliente._id, activo: true })
+        // ===== VERY DETAILED LOGGING - AFTER GETTING CLIENTE =====
+        console.log('=== DEBUG obtenerMiSaldo ===');
+        console.log('usuarioId:', usuarioId);
+        console.log('cliente encontrado:', cliente);
+        console.log('clienteId:', cliente._id);
+        console.log('clienteId tipo:', typeof cliente._id);
+
+        // STEP 2: Verify cliente._id is valid and not null
+        if (!cliente._id || cliente._id.toString().trim() === "") {
+            console.error("[SECURITY] obtenerMiSaldo - cliente._id es inválido o nulo");
+            return res.status(500).json({
+                success: false,
+                message: "Error de validación: ID de cliente inválido"
+            });
+        }
+
+        // STEP 5: Store clienteId explicitly for safety
+        const clienteId = cliente._id;
+        console.log(`[SECURITY] obtenerMiSaldo - clienteId validado: ${clienteId}`);
+
+        // STEP 3: Get ONLY facturas for THIS CLIENT with explicit filters
+        const facturas = await FacturaPorCobrar.find({
+            cliente: clienteId,  // ONLY this client's facturas
+            activo: true
+        })
             .select("monto estado fechaVencimiento");
 
-        const cobros = await CobroCliente.find({ cliente: cliente._id, activo: true })
-            .select("montoCobrado");
+        // Obtener IDs de facturas válidas
+        const facturasIds = facturas.map(f => f._id);
 
-        const montoTotalFacturas = facturas.reduce((sum, f) => sum + f.monto, 0);
-        const montoTotalCobrado = cobros.reduce((sum, c) => sum + c.montoCobrado, 0);
+        // ===== LOGGING BEFORE COBROS QUERY =====
+        console.log('Buscando cobros con:');
+        console.log('cliente:', clienteId);
+        console.log('facturasIds:', facturasIds);
+
+        // STEP 4: Obtener SOLO cobros que están vinculados a estas facturas específicas
+        const cobros = await CobroCliente.find({ 
+            cliente: clienteId,  // DIRECT filter - no mixing clients!
+            facturaPorCobrar: { $in: facturasIds },  // Backup filter
+            activo: true,
+            montoCobrado: { $gt: 0 }
+        })
+            .select("numeroComprobante montoCobrado fechaCobro cliente facturaPorCobrar");
+
+        // ===== LOGGING AFTER COBROS QUERY - VERY DETAILED =====
+        console.log('Cobros encontrados:', cobros.length);
+        cobros.forEach(c => {
+            console.log(`- ${c.numeroComprobante}: cliente=${c.cliente}, monto=${c.montoCobrado}, factura=${c.facturaPorCobrar}`);
+        });
+
+        // ===== DEBUG INFO =====
+        console.log("🔍 DEBUG obtenerMiSaldo:");
+        console.log("   Cobros encontrados: " + cobros.length);
+        console.log("   Detalle de cobros:", cobros.map(c => ({
+            numeroComprobante: c.numeroComprobante,
+            montoCobrado: c.montoCobrado,
+            fechaCobro: c.fechaCobro
+        })));
+
+        const montoTotalFacturas = facturas.reduce((sum, f) => sum + (f.monto || 0), 0);
+        const montoTotalCobrado = cobros.reduce((sum, c) => sum + (c.montoCobrado || 0), 0);
+        console.log('Total calculado:', montoTotalCobrado);
+        console.log("   Suma total de montoCobrado: " + montoTotalCobrado);
+        
         const saldoPendiente = montoTotalFacturas - montoTotalCobrado;
 
         const hoy = new Date();
@@ -637,7 +739,7 @@ export const obtenerMiSaldo = async (req, res) => {
             },
             saldo: {
                 totalFacturas: montoTotalFacturas,
-                totalCobrado: montoTotalCobrado,
+                totalPagado: montoTotalCobrado,
                 saldoPendiente,
                 porcentajePagado: montoTotalFacturas > 0 ? ((montoTotalCobrado / montoTotalFacturas) * 100).toFixed(2) : 0,
                 facturasVencidas
@@ -646,6 +748,24 @@ export const obtenerMiSaldo = async (req, res) => {
                 limite: cliente.limiteCreditoMes,
                 utilizado: saldoPendiente,
                 disponible: cliente.limiteCreditoMes - saldoPendiente
+            },
+            // ===== VERY DETAILED DEBUG INFO IN RESPONSE =====
+            debug: {
+                usuarioId: usuarioId.toString(),
+                clienteId: clienteId.toString(),
+                clienteIdType: typeof clienteId,
+                clienteObject: cliente,
+                cobroCount: cobros.length,
+                cobrosList: cobros.map(c => ({
+                    numeroComprobante: c.numeroComprobante,
+                    cliente: c.cliente,
+                    montoCobrado: c.montoCobrado,
+                    fechaCobro: c.fechaCobro,
+                    facturaPorCobrar: c.facturaPorCobrar
+                })),
+                calculatedTotal: montoTotalCobrado,
+                facturasIds: facturasIds,
+                totalFacturasCount: facturas.length
             }
         });
     } catch (err) {
@@ -662,11 +782,19 @@ export const obtenerMiSaldo = async (req, res) => {
 export const obtenerMisFacturasVencidas = async (req, res) => {
     try {
         const { limite = 10, desde = 0 } = req.query;
-        const clienteId = req.usuario._id;
+        const usuarioId = req.usuario._id;
         const hoy = new Date();
 
+        const cliente = await Cliente.findOne({ usuarioAsociado: usuarioId });
+        if (!cliente) {
+            return res.status(404).json({
+                success: false,
+                message: "Perfil de cliente no encontrado"
+            });
+        }
+
         const facturas = await FacturaPorCobrar.find({
-            cliente: clienteId,
+            cliente: cliente._id,
             $or: [
                 { estado: "VENCIDA" },
                 {
@@ -682,7 +810,7 @@ export const obtenerMisFacturasVencidas = async (req, res) => {
             .sort({ fechaVencimiento: 1 });
 
         const total = await FacturaPorCobrar.countDocuments({
-            cliente: clienteId,
+            cliente: cliente._id,
             $or: [
                 { estado: "VENCIDA" },
                 {

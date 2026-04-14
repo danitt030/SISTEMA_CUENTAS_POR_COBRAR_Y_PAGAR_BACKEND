@@ -20,7 +20,7 @@ export const crearPagoProveedorValidator = [
 
 export const obtenerPagosProveedoresValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
     query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
     query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
     validateField,

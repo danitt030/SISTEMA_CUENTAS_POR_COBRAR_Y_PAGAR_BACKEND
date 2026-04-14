@@ -6,7 +6,7 @@ import { handleErrors } from "./handle-errors.js";
 
 export const crearFacturaPagarValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE"),
     body("numeroFactura", "El número de factura es requerido").trim().notEmpty(),
     body("proveedor", "El proveedor es requerido").notEmpty(),
     body("monto", "El monto es requerido y debe ser un número").isNumeric(),
@@ -20,7 +20,7 @@ export const crearFacturaPagarValidator = [
 
 export const obtenerFacturasPagarValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
     query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
     query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
     validateField,
@@ -29,7 +29,7 @@ export const obtenerFacturasPagarValidator = [
 
 export const obtenerFacturaPagarPorIdValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
     param("id").isMongoId().withMessage("No es un ID válido"),
     validateField,
     handleErrors
@@ -50,7 +50,7 @@ export const actualizarFacturaPagarValidator = [
 
 export const buscarFacturasActivasPagarValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
     query("estado").optional().isIn(["PENDIENTE", "PARCIAL", "PAGADA", "VENCIDA"]),
     query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
     query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
@@ -84,7 +84,7 @@ export const obtenerSaldoFacturaPagarValidator = [
 
 export const obtenerFacturasPorProveedorValidator = [
     validateJWT,
-    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE", "AUXILIAR_ROLE"),
+    hasRoles("ADMINISTRADOR_ROLE", "CONTADOR_ROLE", "GERENTE_GENERAL_ROLE"),
     param("id").isMongoId().withMessage("No es un ID válido"),
     query("limite").optional().isNumeric().withMessage("Límite debe ser número"),
     query("desde").optional().isNumeric().withMessage("Desde debe ser número"),
