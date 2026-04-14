@@ -4,6 +4,47 @@ import Proveedor from "../proveedor/proveedor.model.js";
 import XLSX from "xlsx";
 import { descargarExcel } from "../helpers/excel-generator.js";
 
+/**
+ * Validates and corrects invoice status based on actual payments made
+ * Updates BD if status needs correction
+ * Returns invoices with correct status
+ */
+const validarYCorregirEstadoFacturasPagar = async (facturas) => {
+    try {
+        for (let factura of facturas) {
+            // Calculate total paid from PagoProveedor records
+            const totalPagado = await PagoProveedor.aggregate([
+                { $match: { facturaPorPagar: factura._id, activo: true } },
+                { $group: { _id: null, montoPagadoTotal: { $sum: "$monto" } } }
+            ]);
+
+            const montoPagadoTotal = totalPagado[0]?.montoPagadoTotal || 0;
+            let nuevoEstado = "PENDIENTE";
+
+            // Determine correct status
+            if (montoPagadoTotal >= factura.monto) {
+                nuevoEstado = "PAGADA";
+            } else if (montoPagadoTotal > 0) {
+                nuevoEstado = "PARCIAL";
+            }
+
+            // Update if changed
+            if (factura.estado !== nuevoEstado) {
+                await FacturaPorPagar.findByIdAndUpdate(
+                    factura._id,
+                    { estado: nuevoEstado },
+                    { new: true }
+                );
+                factura.estado = nuevoEstado;
+            }
+        }
+        return facturas;
+    } catch (error) {
+        // Return unchanged if validation fails
+        return facturas;
+    }
+};
+
 export const crearPagoProveedor = async (req, res) => {
     try {
         const { numeroRecibo, facturaPorPagar, proveedor, monto, moneda, metodoPago, fechaPago, referencia, descripcion } = req.body;
@@ -42,6 +83,13 @@ export const crearPagoProveedor = async (req, res) => {
         });
 
         await pago.save();
+
+        // Validar y actualizar estado de la factura
+        const factura = await FacturaPorPagar.findById(facturaPorPagar);
+        if (factura) {
+            await validarYCorregirEstadoFacturasPagar([factura]);
+        }
+
         return res.status(201).json({
             success: true,
             message: "Pago a proveedor registrado exitosamente",
@@ -141,6 +189,31 @@ export const obtenerPagoPorId = async (req, res) => {
             }
         }
 
+        // Agregar información de saldo a la factura
+        if (pago.facturaPorPagar) {
+            console.log("📦 Calculando saldo para factura:", pago.facturaPorPagar._id);
+            
+            const [totalPagado] = await PagoProveedor.aggregate([
+                { $match: { facturaPorPagar: pago.facturaPorPagar._id, activo: true } },
+                { $group: { _id: null, montoPagado: { $sum: "$monto" } } }
+            ]);
+            
+            const montoPagado = totalPagado?.montoPagado || 0;
+            console.log("💰 Total pagado encontrado:", montoPagado, "Registros:", totalPagado);
+            
+            pago.facturaPorPagar.montoPagado = montoPagado;
+            pago.facturaPorPagar.saldoPendiente = pago.facturaPorPagar.monto - montoPagado;
+            
+            console.log("✅ Factura con saldo calculado:", {
+                numeroFactura: pago.facturaPorPagar.numeroFactura,
+                montoFactura: pago.facturaPorPagar.monto,
+                montoPagado: pago.facturaPorPagar.montoPagado,
+                saldoPendiente: pago.facturaPorPagar.saldoPendiente
+            });
+        } else {
+            console.log("⚠️ No hay factura populada");
+        }
+
         return res.status(200).json({
             success: true,
             pago
@@ -187,6 +260,14 @@ export const actualizarPago = async (req, res) => {
             },
             { returnDocument: "after" }
         ).populate("facturaPorPagar").populate("proveedor").populate("creadoPor", "nombre usuario");
+
+        // Validar y actualizar estado de la factura
+        if (pago && pago.facturaPorPagar) {
+            const factura = await FacturaPorPagar.findById(pago.facturaPorPagar._id);
+            if (factura) {
+                await validarYCorregirEstadoFacturasPagar([factura]);
+            }
+        }
 
         return res.status(200).json({
             success: true,
@@ -281,6 +362,14 @@ export const desactivarPago = async (req, res) => {
             });
         }
 
+        // Validar y actualizar estado de la factura
+        if (pago && pago.facturaPorPagar) {
+            const factura = await FacturaPorPagar.findById(pago.facturaPorPagar._id);
+            if (factura) {
+                await validarYCorregirEstadoFacturasPagar([factura]);
+            }
+        }
+
         return res.status(200).json({
             success: true,
             message: "Pago desactivado exitosamente",
@@ -307,6 +396,14 @@ export const eliminarPago = async (req, res) => {
             });
         }
 
+        // Validar y actualizar estado de la factura
+        if (pago && pago.facturaPorPagar) {
+            const factura = await FacturaPorPagar.findById(pago.facturaPorPagar);
+            if (factura) {
+                await validarYCorregirEstadoFacturasPagar([factura]);
+            }
+        }
+
         return res.status(200).json({
             success: true,
             message: "Pago eliminado exitosamente",
@@ -324,48 +421,63 @@ export const obtenerSaldoPago = async (req, res) => {
     try {
         const { id } = req.params;
 
+        // Log para debug
+        console.log("obtenerSaldoPago - ID recibido:", id, "Tipo:", typeof id);
+
         const factura = await FacturaPorPagar.findById(id)
             .populate("proveedor", "nombre")
             .populate("creadoPor", "nombre usuario");
 
         if (!factura) {
+            console.log("Factura no encontrada con ID:", id);
             return res.status(404).json({
                 success: false,
                 message: "Factura no encontrada"
             });
         }
 
+        console.log("Factura encontrada:", factura.numeroFactura, "Monto:", factura.monto);
+
+        // Validar y corregir estado de la factura
+        const facturasCorregidas = await validarYCorregirEstadoFacturasPagar([factura]);
+        const facturaCorregida = facturasCorregidas[0];
+
         // Validar que la factura tenga un monto válido
-        if (!factura.monto || factura.monto <= 0) {
+        if (!facturaCorregida.monto || facturaCorregida.monto <= 0) {
             return res.status(400).json({
                 success: false,
-                message: `La factura ${factura.numeroFactura} no tiene un monto válido (${factura.monto || 0}). Por favor, actualiza el monto de la factura.`
+                message: `La factura ${facturaCorregida.numeroFactura} no tiene un monto válido (${facturaCorregida.monto || 0}). Por favor, actualiza el monto de la factura.`
             });
         }
 
-        const [totalPagado] = await PagoProveedor.aggregate([
-            { $match: { facturaPorPagar: factura._id, activo: true } },
-            { $group: { _id: null, total: { $sum: "$monto" } } }
+        // Agregación correcta - usar "montoPagado" consistentemente
+        const agregarPagos = await PagoProveedor.aggregate([
+            { $match: { facturaPorPagar: facturaCorregida._id, activo: true } },
+            { $group: { _id: null, montoPagado: { $sum: "$monto" } } }
         ]);
 
-        const montoPagado = totalPagado?.total || 0;
-        const montoPendiente = factura.monto - montoPagado;
+        const montoPagado = agregarPagos[0]?.montoPagado || 0;
+        const montoPendiente = facturaCorregida.monto - montoPagado;
+
+        console.log("Saldo - Monto:", facturaCorregida.monto, "Pagado:", montoPagado, "Pendiente:", montoPendiente);
 
         return res.status(200).json({
             success: true,
             factura: {
-                id: factura._id,
-                numeroFactura: factura.numeroFactura,
-                proveedor: factura.proveedor.nombre
+                id: facturaCorregida._id,
+                numeroFactura: facturaCorregida.numeroFactura,
+                proveedor: facturaCorregida.proveedor.nombre,
+                estado: facturaCorregida.estado
             },
             saldo: {
-                montoFactura: factura.monto,
+                montoFactura: facturaCorregida.monto,
                 montoPagado,
                 montoPendiente,
-                porcentajePagado: ((montoPagado / factura.monto) * 100).toFixed(2) + "%"
+                porcentajePagado: ((montoPagado / facturaCorregida.monto) * 100).toFixed(2) + "%"
             }
         });
     } catch (err) {
+        console.error("Error en obtenerSaldoPago:", err);
         return res.status(500).json({
             success: false,
             message: err.message

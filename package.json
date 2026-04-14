@@ -32,6 +32,7 @@
   },
   "homepage": "https://github.com/danitt030/SISTEMA_CUENTAS_POR_COBRAR_Y_PAGAR_BACKEND#readme",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.88.0",
     "argon2": "^0.44.0",
     "axios": "^1.13.6",
     "bcrypt": "^6.0.0",
