@@ -13,7 +13,7 @@ const conversacionIASchema = new Schema(
     },
     modulo: {
       type: String,
-      enum: ["cliente", "facturaPorCobrar", "cobroCliente", "reportes"],
+      enum: ["general", "cliente", "facturaPorCobrar", "cobroCliente", "reportes"],
       default: "general",
     },
     cliente: {

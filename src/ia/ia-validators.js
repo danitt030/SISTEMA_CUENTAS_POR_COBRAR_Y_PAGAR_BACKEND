@@ -11,18 +11,18 @@ export const validarPreguntaIA = [
     body("pregunta")
         .notEmpty()
         .withMessage("La pregunta es requerida")
-        .isLength({ min: 5, max: 500 })
-        .withMessage("La pregunta debe tener entre 5 y 500 caracteres"),
+        .isLength({ min: 1, max: 500 })
+        .withMessage("La pregunta debe tener entre 1 y 500 caracteres"),
     body("modulo")
-        .optional()
+        .optional({ nullable: true, checkFalsy: true })
         .isIn(["cliente", "facturaPorCobrar", "cobroCliente", "reportes"])
         .withMessage("El módulo debe ser: cliente, facturaPorCobrar, cobroCliente o reportes"),
     body("documentoId")
-        .optional()
+        .optional({ nullable: true, checkFalsy: true })
         .isMongoId()
         .withMessage("El ID del documento no es válido"),
     body("conversacionId")
-        .optional()
+        .optional({ nullable: true, checkFalsy: true })
         .isMongoId()
         .withMessage("El ID de la conversación no es válido"),
     validateField,
