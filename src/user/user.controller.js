@@ -85,7 +85,28 @@ export const obtenerUsuariosPorRol = async (req, res) => {
 export const actualizarUsuario = async (req, res) => {
     try {
         const { uid } = req.params;
-        const { _id, contraseña, rol, estado, numeroDocumento, ...resto } = req.body;
+        const { _id, contraseña, estado, numeroDocumento, ...resto } = req.body;
+
+        if (resto.rol) {
+            const rolesValidos = [
+                "ADMINISTRADOR_ROLE",
+                "GERENTE_GENERAL_ROLE",
+                "CONTADOR_ROLE",
+                "GERENTE_ROLE",
+                "VENDEDOR_ROLE",
+                "AUXILIAR_ROLE",
+                "CLIENTE_ROLE"
+            ];
+
+            if (req.usuario?.rol !== "ADMINISTRADOR_ROLE") {
+                delete resto.rol;
+            } else if (!rolesValidos.includes(resto.rol)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Rol no válido"
+                });
+            }
+        }
 
         const usuarioActualizado = await Usuario.findByIdAndUpdate(uid, resto, { new: true });
 
