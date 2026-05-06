@@ -188,6 +188,13 @@ export const actualizarCliente = async (req, res) => {
     try {
         const { id } = req.params;
         const { _id, creadoPor, creadoEn, ...resto } = req.body;
+        const normalizeEmptyToNull = (payload, fields) => {
+            fields.forEach((field) => {
+                if (payload[field] === "") {
+                    payload[field] = null;
+                }
+            });
+        };
 
         // Limpiar valores vacíos en campos de relación
         if (resto.gerenteAsignado === "" || resto.gerenteAsignado === null) {
@@ -196,6 +203,17 @@ export const actualizarCliente = async (req, res) => {
         if (resto.vendedorAsignado === "" || resto.vendedorAsignado === null) {
             resto.vendedorAsignado = null;
         }
+
+        normalizeEmptyToNull(resto, [
+            "nit",
+            "codigoPostal",
+            "telefonoSecundario",
+            "banco",
+            "numeroCuenta",
+            "correoContacto",
+            "nombreContacto",
+            "telefonoContacto"
+        ]);
 
         const cliente = await Cliente.findByIdAndUpdate(
             id,
@@ -219,6 +237,13 @@ export const actualizarCliente = async (req, res) => {
             cliente: cliente.toJSON()
         });
     } catch (err) {
+        if (err.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: "Valor duplicado en un campo unico",
+                error: err.message
+            });
+        }
         return res.status(500).json({
             success: false,
             message: "Error al actualizar cliente",
