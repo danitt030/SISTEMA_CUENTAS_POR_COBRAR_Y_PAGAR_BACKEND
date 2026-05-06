@@ -20,6 +20,8 @@ export const crearClienteValidator = [
     body("diasCredito").optional().isNumeric().withMessage("Días de crédito debe ser número"),
     body("limiteCreditoMes").optional().isNumeric().withMessage("Límite de crédito debe ser número"),
     body("tipoCuenta").optional().isIn(["AHORRO", "CORRIENTE"]).withMessage("Tipo de cuenta no válido"),
+    body("gerenteAsignado").optional({ checkFalsy: true }).isMongoId().withMessage("Gerente asignado no es un ID válido"),
+    body("vendedorAsignado").optional({ checkFalsy: true }).isMongoId().withMessage("Vendedor asignado no es un ID válido"),
     validateField,
     handleErrors
 ];
@@ -49,6 +51,8 @@ export const actualizarClienteValidator = [
     body("condicionPago").optional().isIn(["CONTADO", "CREDITO"]).withMessage("Condición de pago no válida"),
     body("diasCredito").optional().isNumeric().withMessage("Días de crédito debe ser número"),
     body("limiteCreditoMes").optional().isNumeric().withMessage("Límite de crédito debe ser número"),
+    body("gerenteAsignado").optional({ checkFalsy: true }).isMongoId().withMessage("Gerente asignado no es un ID válido"),
+    body("vendedorAsignado").optional({ checkFalsy: true }).isMongoId().withMessage("Vendedor asignado no es un ID válido"),
     validateField,
     handleErrors
 ];
