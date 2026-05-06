@@ -1,5 +1,5 @@
 import { body, param } from "express-validator";
-import { correoExists, usuarioExists, numeroDocumentoExists, usuarioIdExists } from "../helpers/db-validators.js";
+import { correoExists, usuarioExists, numeroDocumentoExists, usuarioIdExists, nitExists } from "../helpers/db-validators.js";
 import { validateField } from "./validate-fields.js";
 import { validateJWT } from "./validate-jwt.js";
 import { hasRoles } from "./validate-roles.js";
@@ -19,6 +19,7 @@ export const registrarValidator = [
     body("tipoDocumento").isIn(["DPI", "NIT", "PASAPORTE"]).withMessage("Tipo de documento no válido"),
     body("numeroDocumento").notEmpty().withMessage("El número de documento es requerido"),
     body("numeroDocumento").custom(numeroDocumentoExists),
+    body("nit").optional({ checkFalsy: true }).custom(nitExists),
 
     // ==================== VALIDACIÓN INTELIGENTE POR CONTEXTO ====================
     // Detectar contexto: ¿JWT presente? ¿Es ADMINISTRADOR?

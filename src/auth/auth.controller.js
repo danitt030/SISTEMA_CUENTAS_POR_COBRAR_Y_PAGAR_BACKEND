@@ -66,6 +66,21 @@ export const registrar = async (req, res) => {
             }
         });
     } catch (err) {
+        if (err?.code === 11000) {
+            const key = Object.keys(err.keyValue || {})[0] || "campo";
+            const labels = {
+                correo: "correo",
+                usuario: "usuario",
+                numeroDocumento: "número de documento",
+                nit: "NIT"
+            };
+            const label = labels[key] || key;
+            return res.status(400).json({
+                success: false,
+                message: `El ${label} ya está registrado`,
+                error: err.message
+            });
+        }
         return res.status(500).json({
             success: false,
             message: "Error al registrar usuario",

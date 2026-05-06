@@ -21,6 +21,13 @@ export const numeroDocumentoExists = async (numeroDocumento) => {
     }
 };
 
+export const nitExists = async (nit) => {
+    const existeNit = await Usuario.findOne({ nit });
+    if (existeNit) {
+        throw new Error(`El NIT ${nit} ya está registrado`);
+    }
+};
+
 export const usuarioIdExists = async (uid) => {
     const existeUsuario = await Usuario.findById(uid);
     if (!existeUsuario) {
