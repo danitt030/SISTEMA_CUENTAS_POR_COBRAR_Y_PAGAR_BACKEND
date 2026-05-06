@@ -74,6 +74,13 @@ const routes = (app) => {
     app.use("/sistemasCuentasPorPagarYCobrar/v1/ia", iaRoutes);
 };
 
+const buildApp = () => {
+    const app = express();
+    middlewares(app);
+    routes(app);
+    return app;
+};
+
 const conectarDB = async () => {
     try {
         await dbConnection();        
@@ -87,7 +94,7 @@ const conectarDB = async () => {
 };
 
 export const initServer = () => {
-    const app = express();
+    const app = buildApp();
     const httpServer = http.createServer(app);
     const io = new SocketIOServer(httpServer, {
         cors: {
@@ -106,9 +113,7 @@ export const initServer = () => {
     });
 
     try{
-        middlewares(app);
         conectarDB();
-        routes(app);
         iniciarCronVencidos();
         
         httpServer.listen(process.env.PORT);
@@ -124,3 +129,9 @@ export const initServer = () => {
         console.log(`Server init failed: ${err}`)
     }
 }
+
+export const createServerlessApp = () => {
+    const app = buildApp();
+    conectarDB();
+    return app;
+};
