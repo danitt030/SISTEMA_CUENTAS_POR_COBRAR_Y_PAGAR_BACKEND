@@ -130,8 +130,8 @@ export const initServer = () => {
     }
 }
 
-export const createServerlessApp = () => {
+export const createServerlessApp = async () => {
     const app = buildApp();
-    conectarDB();
+    await conectarDB();
     return app;
 };
