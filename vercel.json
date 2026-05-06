@@ -1,0 +1,30 @@
+{
+    "builds": [
+        {
+            "src": "./index.js",
+            "use": "@vercel/node"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/(.*)",
+            "methods": ["OPTIONS"],
+            "dest": "/",
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+                "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Authorization",
+                "Access-Control-Max-Age": "86400"
+            }
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/",
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+                "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Authorization"
+            }
+        }
+    ]
+}
