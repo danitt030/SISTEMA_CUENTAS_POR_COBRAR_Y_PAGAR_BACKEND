@@ -3,6 +3,9 @@ import { createServerlessApp } from "../configs/server.js";
 
 config();
 
-const app = createServerlessApp();
+const appPromise = createServerlessApp();
 
-export default app;
+export default async (req, res) => {
+	const app = await appPromise;
+	return app(req, res);
+};
