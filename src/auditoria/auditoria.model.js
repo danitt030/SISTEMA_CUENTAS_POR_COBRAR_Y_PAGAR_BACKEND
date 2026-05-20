@@ -13,7 +13,7 @@ const auditoriaSchema = new Schema({
     },
     modulo: {
         type: String,
-        enum: ["USUARIOS", "PROVEEDORES", "CLIENTES", "FACTURAS_PAGAR", "FACTURAS_COBRAR", "PAGOS_PROVEEDORES", "COBROS_CLIENTES", "REPORTES", "AUDITORIA"],
+        enum: ["USUARIOS", "PROVEEDORES", "CLIENTES", "FACTURAS_PAGAR", "FACTURAS_COBRAR", "PAGOS_PROVEEDORES", "COBROS_CLIENTES", "REPORTES", "AUDITORIA", "IA"],
         required: true
     },
     descripcion: {

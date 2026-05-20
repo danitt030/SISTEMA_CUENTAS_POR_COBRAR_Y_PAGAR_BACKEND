@@ -335,33 +335,37 @@ export const facturasPorEstado = async (req, res) => {
 export const topClientesDeudores = async (req, res) => {
     try {
         const { limite = 10 } = req.query;
-        const facturas = await FacturaPorCobrar.find()
-            .populate("cliente", "nombre numeroDocumento")
-            .sort({ monto: -1 })
-            .limit(Number(limite));
+        const limiteNumero = Number(limite) || 10;
 
-        const resultado = facturas.reduce((acc, factura) => {
-            const cliente = acc.find(c => c._id === factura.cliente._id);
-            if (cliente) {
-                cliente.totalDeuda += factura.monto;
-                cliente.cantidadFacturas += 1;
-            } else {
-                acc.push({
-                    _id: factura.cliente._id,
-                    nombreCliente: factura.cliente.nombre,
-                    totalDeuda: factura.monto,
-                    cantidadFacturas: 1
-                });
-            }
-            return acc;
-        }, []);
+        const resultado = await FacturaPorCobrar.aggregate([
+            {
+                $group: {
+                    _id: "$cliente",
+                    totalDeuda: { $sum: "$monto" },
+                    cantidadFacturas: { $sum: 1 }
+                }
+            },
+            { $sort: { totalDeuda: -1 } },
+            { $limit: limiteNumero }
+        ]);
 
-        resultado.sort((a, b) => b.totalDeuda - a.totalDeuda);
+        await Cliente.populate(resultado, { path: "_id", select: "nombre numeroDocumento" });
+
+        const topDeudores = resultado.map((item) => {
+            const cliente = item._id;
+            return {
+                _id: cliente?._id || item._id,
+                nombreCliente: cliente?.nombre || "N/A",
+                numeroDocumento: cliente?.numeroDocumento || null,
+                totalDeuda: item.totalDeuda,
+                cantidadFacturas: item.cantidadFacturas
+            };
+        });
 
         return res.status(200).json({
             success: true,
-            cantidad: resultado.length,
-            topDeudores: resultado
+            cantidad: topDeudores.length,
+            topDeudores
         });
     } catch (err) {
         return res.status(500).json({
@@ -375,33 +379,37 @@ export const topClientesDeudores = async (req, res) => {
 export const topProveedoresAcreedores = async (req, res) => {
     try {
         const { limite = 10 } = req.query;
-        const facturas = await FacturaPorPagar.find()
-            .populate("proveedor", "nombre numeroDocumento")
-            .sort({ monto: -1 })
-            .limit(Number(limite));
+        const limiteNumero = Number(limite) || 10;
 
-        const resultado = facturas.reduce((acc, factura) => {
-            const proveedor = acc.find(p => p._id === factura.proveedor._id);
-            if (proveedor) {
-                proveedor.totalDeuda += factura.monto;
-                proveedor.cantidadFacturas += 1;
-            } else {
-                acc.push({
-                    _id: factura.proveedor._id,
-                    nombreProveedor: factura.proveedor.nombre,
-                    totalDeuda: factura.monto,
-                    cantidadFacturas: 1
-                });
-            }
-            return acc;
-        }, []);
+        const resultado = await FacturaPorPagar.aggregate([
+            {
+                $group: {
+                    _id: "$proveedor",
+                    totalDeuda: { $sum: "$monto" },
+                    cantidadFacturas: { $sum: 1 }
+                }
+            },
+            { $sort: { totalDeuda: -1 } },
+            { $limit: limiteNumero }
+        ]);
 
-        resultado.sort((a, b) => b.totalDeuda - a.totalDeuda);
+        await Proveedor.populate(resultado, { path: "_id", select: "nombre numeroDocumento" });
+
+        const topAcreedores = resultado.map((item) => {
+            const proveedor = item._id;
+            return {
+                _id: proveedor?._id || item._id,
+                nombreProveedor: proveedor?.nombre || "N/A",
+                numeroDocumento: proveedor?.numeroDocumento || null,
+                totalDeuda: item.totalDeuda,
+                cantidadFacturas: item.cantidadFacturas
+            };
+        });
 
         return res.status(200).json({
             success: true,
-            cantidad: resultado.length,
-            topAcreedores: resultado
+            cantidad: topAcreedores.length,
+            topAcreedores
         });
     } catch (err) {
         return res.status(500).json({
