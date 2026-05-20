@@ -17,7 +17,7 @@ export const validarRegistroEvento = [
     body("modulo")
         .notEmpty()
         .withMessage("El módulo es requerido")
-        .isIn(["USUARIOS", "PROVEEDORES", "CLIENTES", "FACTURAS_PAGAR", "FACTURAS_COBRAR", "PAGOS_PROVEEDORES", "COBROS_CLIENTES", "REPORTES", "AUDITORIA"])
+        .isIn(["USUARIOS", "PROVEEDORES", "CLIENTES", "FACTURAS_PAGAR", "FACTURAS_COBRAR", "PAGOS_PROVEEDORES", "COBROS_CLIENTES", "REPORTES", "AUDITORIA", "IA"])
         .withMessage("El módulo no es válido"),
     body("descripcion")
         .notEmpty()

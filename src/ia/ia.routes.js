@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { preguntarAsistenteIA, obtenerHistorialIA, eliminarHistorialIA } from "./ia.controller.js";
+import { preguntarAsistenteIA, obtenerHistorialIA, eliminarHistorialIA, eliminarHistorialIAUsuario } from "./ia.controller.js";
 import { validarPreguntaIA } from "./ia-validators.js";
 import { validateJWT } from "../middlewares/validate-jwt.js";
 import { obtenerConversaciones } from "./conversacion.controller.js";
@@ -29,6 +29,18 @@ router.get(
     "/historial",
     validateJWT,
     obtenerHistorialIA
+);
+
+/**
+ * @route   DELETE /sistemasCuentasPorPagarYCobrar/v1/ia/historial
+ * @desc    Eliminar historial completo del usuario (opcional por modulo)
+ * @access  Private
+ * @query   { modulo }
+ */
+router.delete(
+    "/historial",
+    validateJWT,
+    eliminarHistorialIAUsuario
 );
 
 /**

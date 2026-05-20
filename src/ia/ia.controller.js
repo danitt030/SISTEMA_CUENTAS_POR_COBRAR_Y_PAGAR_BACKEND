@@ -4,6 +4,7 @@ import FacturaPorCobrar from "../facturaPorCobrar/facturaPorCobrar.model.js";
 import CobroCliente from "../cobroCliente/cobroCliente.model.js";
 import HistorialIA from "./historialIA.model.js";
 import ConversacionIA from "./conversacionIA.model.js";
+import Auditoria from "../auditoria/auditoria.model.js";
 import { esPreguntaSobrePermisos, obtenerPermisosDeRol, generarResumenPermisos } from "../helpers/ia-helpers.js";
 
 /**
@@ -83,6 +84,72 @@ const obtenerMetricasCliente = async (clienteId) => {
     } catch (err) {
         console.error("Error obtener métricas cliente:", err.message);
         return null;
+    }
+};
+
+// Mejora IA (Autor: Andres Baten): reducir datos sensibles guardados en historial IA.
+const crearContextoSeguroHistorial = (contextoIA) => {
+    if (!contextoIA || !contextoIA.datosCliente) {
+        return null;
+    }
+
+    const { cliente, metricas } = contextoIA.datosCliente;
+
+    return {
+        cliente: {
+            nombre: cliente?.nombre || null
+        },
+        metricas: {
+            riesgoNivel: metricas?.riesgoNivel || null,
+            riesgoScore: metricas?.riesgoScore || null,
+            totalFacturas: metricas?.totalFacturas ?? null,
+            facturasVencidas: metricas?.facturasVencidas ?? null,
+            totalCobros: metricas?.totalCobros ?? null
+        }
+    };
+};
+
+// Mejora IA (Autor: Daniel Tuy): registrar auditoria de consultas IA para trazabilidad.
+const registrarAuditoriaIA = async ({ req, usuarioId, modulo, documentoId, pregunta, respuesta, usage }) => {
+    try {
+        await Auditoria.create({
+            usuario: usuarioId,
+            accion: "LEER",
+            modulo: "IA",
+            descripcion: `Consulta IA (${modulo || "general"})`,
+            objetoAfectado: documentoId || null,
+            detallesAntes: {
+                modulo: modulo || "general",
+                pregunta,
+                documentoId: documentoId || null
+            },
+            detallesDespues: {
+                respuestaResumen: respuesta ? String(respuesta).slice(0, 300) : null,
+                tokens: usage || null
+            },
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"],
+            estado: "EXITOSO"
+        });
+    } catch (err) {
+        console.error("Error registrando auditoria IA:", err.message);
+    }
+};
+
+// Mejora IA (Autor: Andres Baten): guardar historial IA con contexto reducido (chat y consultas directas).
+const guardarHistorialIA = async ({ usuarioId, pregunta, respuesta, modulo, documentoId, contextoIA }) => {
+    try {
+        const nuevoHistorial = new HistorialIA({
+            usuario: usuarioId,
+            pregunta,
+            respuesta,
+            modulo: modulo || "general",
+            documentoId: documentoId || null,
+            contexto: crearContextoSeguroHistorial(contextoIA)
+        });
+        await nuevoHistorial.save();
+    } catch (errHistorial) {
+        console.error("Error guardando historial en BD:", errHistorial.message);
     }
 };
 
@@ -208,6 +275,7 @@ Responde de manera directa y apropiada a lo que se pregunta.`;
         });
 
         const respuestaClaudia = response.content[0].type === "text" ? response.content[0].text : "No se pudo obtener respuesta";
+        const usoTokens = response?.usage || null;
 
         // GUARDAR EN CONVERSACIÓN si existe conversacionId
         if (conversacionId) {
@@ -249,23 +317,26 @@ Responde de manera directa y apropiada a lo que se pregunta.`;
                 console.error("Error guardando en conversación:", errConversacion.message);
                 // No retornamos error, solo continuamos
             }
-        } else {
-            // GUARDAR EN HISTORIAL (BD) si no hay conversacionId
-            try {
-                const nuevoHistorial = new HistorialIA({
-                    usuario: usuarioId,
-                    pregunta,
-                    respuesta: respuestaClaudia,
-                    modulo: modulo || "general",
-                    documentoId: documentoIdValido || null,
-                    contexto: contextoIA.datosCliente || null
-                });
-                await nuevoHistorial.save();
-            } catch (errHistorial) {
-                console.error("Error guardando historial en BD:", errHistorial.message);
-                // No retornamos error, solo continuamos
-            }
         }
+
+        await guardarHistorialIA({
+            usuarioId,
+            pregunta,
+            respuesta: respuestaClaudia,
+            modulo: modulo || "general",
+            documentoId: documentoIdValido,
+            contextoIA
+        });
+
+        await registrarAuditoriaIA({
+            req,
+            usuarioId,
+            modulo: modulo || "general",
+            documentoId: documentoIdValido,
+            pregunta,
+            respuesta: respuestaClaudia,
+            usage: usoTokens
+        });
 
         // RETORNAR RESPUESTA
         return res.status(200).json({
@@ -361,6 +432,43 @@ export const eliminarHistorialIA = async (req, res) => {
         });
     } catch (err) {
         console.error("[ERROR] eliminarHistorialIA:", err.message);
+        return res.status(500).json({
+            success: false,
+            message: "Error al eliminar historial",
+            error: err.message
+        });
+    }
+};
+
+/**
+ * Eliminar historial completo del usuario (opcional por modulo)
+ */
+export const eliminarHistorialIAUsuario = async (req, res) => {
+    try {
+        const usuarioId = req.usuario._id;
+        const { modulo } = req.query;
+
+        const modulosValidos = ["cliente", "facturaPorCobrar", "cobroCliente", "reportes", "general", "todos"];
+        if (modulo && !modulosValidos.includes(modulo)) {
+            return res.status(400).json({
+                success: false,
+                message: "Modulo no valido"
+            });
+        }
+
+        const filtro = { usuario: usuarioId };
+        if (modulo && modulo !== "todos") {
+            filtro.modulo = modulo;
+        }
+
+        const resultado = await HistorialIA.deleteMany(filtro);
+
+        return res.status(200).json({
+            success: true,
+            eliminados: resultado.deletedCount || 0
+        });
+    } catch (err) {
+        console.error("[ERROR] eliminarHistorialIAUsuario:", err.message);
         return res.status(500).json({
             success: false,
             message: "Error al eliminar historial",

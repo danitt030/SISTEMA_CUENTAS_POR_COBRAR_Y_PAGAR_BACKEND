@@ -246,13 +246,24 @@ export const actualizarPago = async (req, res) => {
             }
         }
 
-        console.log(`💰 Actualización de pago - Anterior: Q${pagoExiste.monto}, Monto a añadir: Q${monto}, TOTAL: Q${parseFloat(pagoExiste.monto) + parseFloat(monto)}`);
+        const montoActualizado = (monto !== undefined && monto !== null && String(monto).trim() !== "")
+            ? parseFloat(monto)
+            : pagoExiste.monto;
+
+        if (monto !== undefined && Number.isNaN(montoActualizado)) {
+            return res.status(400).json({
+                success: false,
+                message: "El monto no es válido"
+            });
+        }
+
+        console.log(`💰 Actualización de pago - Anterior: Q${pagoExiste.monto}, Nuevo: Q${montoActualizado}`);
 
         const pago = await PagoProveedor.findByIdAndUpdate(
             id,
             {
                 numeroRecibo,
-                monto: parseFloat(pagoExiste.monto) + parseFloat(monto), // SUMA lo anterior + lo nuevo
+                monto: montoActualizado,
                 moneda,
                 metodoPago,
                 fechaPago,
